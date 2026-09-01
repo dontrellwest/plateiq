@@ -17,7 +17,7 @@ function QtyButton({ glyph, label, onPress }: { glyph: string; label: string; on
   );
 }
 
-export function RackRows({ rows, unit, gap = 8 }: { rows: Row[]; unit: string; gap?: number }) {
+export function RackRows({ rows, unit, gap = 8, editable = true, bg = 'card' }: { rows: Row[]; unit: string; gap?: number; editable?: boolean; bg?: string }) {
   const { c } = useTheme();
   return (
     <View style={{ gap }}>
@@ -30,9 +30,9 @@ export function RackRows({ rows, unit, gap = 8 }: { rows: Row[]; unit: string; g
             </View>
           ) : null}
           <View
-            accessible
-            accessibilityLabel={r.label + ' ' + unit + ' plates, ' + r.qty + ' owned, ' + r.note}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c('card'), borderWidth: 1, borderColor: c('bd'), borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12 }}
+            accessible={!editable}
+            accessibilityLabel={!editable ? r.label + ' ' + unit + ' plates, unlimited' : undefined}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c(bg), borderWidth: 1, borderColor: c('bd'), borderRadius: 16, paddingVertical: 10, paddingHorizontal: 12 }}
           >
             <GradientBox
               w={r.width} h={44} radius={5} border={r.skin.bd} topLight="rgba(255,255,255,.28)"
@@ -42,11 +42,15 @@ export function RackRows({ rows, unit, gap = 8 }: { rows: Row[]; unit: string; g
               <Num size={16} weight={700}>{r.label} {unit}</Num>
               <Txt size={11.5} color="mut3" style={{ marginTop: 1 }}>{r.note}</Txt>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <QtyButton glyph="–" label={'One fewer ' + r.label + ' ' + unit + ' plate'} onPress={r.dec} />
-              <Num size={16} weight={700} align="center" style={{ width: 28 }}>{String(r.qty)}</Num>
-              <QtyButton glyph="+" label={'One more ' + r.label + ' ' + unit + ' plate'} onPress={r.inc} />
-            </View>
+            {editable ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <QtyButton glyph="–" label={'One fewer ' + r.label + ' ' + unit + ' plate'} onPress={r.dec} />
+                <Num size={16} weight={700} align="center" style={{ width: 28 }} accessibilityLabel={r.qty + ' owned, ' + r.note}>{String(r.qty)}</Num>
+                <QtyButton glyph="+" label={'One more ' + r.label + ' ' + unit + ' plate'} onPress={r.inc} />
+              </View>
+            ) : (
+              <Txt size={12.5} weight={500} color="mut4">unlimited</Txt>
+            )}
           </View>
         </React.Fragment>
       ))}

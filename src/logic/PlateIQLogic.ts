@@ -1282,7 +1282,7 @@ export class PlateIQLogic {
         queueMark: st.session.indexOf(x.name) >= 0 ? '✓' : '+',
         queueBg: st.session.indexOf(x.name) >= 0 ? 'accA16' : 'ctl2',
         queueFg: st.session.indexOf(x.name) >= 0 ? 'accDeep' : 'mut2',
-        queueAria: (st.session.indexOf(x.name) >= 0 ? 'Remove ' : 'Add ') + x.name + ' to session',
+        queueAria: st.session.indexOf(x.name) >= 0 ? 'Remove ' + x.name + ' from session' : 'Add ' + x.name + ' to session',
         queue: () => {
           if (this.state.session.indexOf(x.name) >= 0) this.dropFromSession(x.name);
           else this.addToSession(x.name);
