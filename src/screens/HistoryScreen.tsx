@@ -36,7 +36,8 @@ function Sparkline({ v }: { v: V }) {
   const { t } = useTheme();
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={'Estimated one rep max trend for ' + v.trendName + ', ' + v.trendDelta + ' over eight weeks'} style={{ marginTop: 14, height: 86 }}>
-      <Svg width="100%" height={86} viewBox={'0 0 ' + v.trendW + ' ' + v.trendH} preserveAspectRatio="none">
+      {/* the prototype lets the svg overflow so the end dot is never clipped; pad the viewBox instead */}
+      <Svg width="100%" height={86} viewBox={'-6 -5 ' + (v.trendW + 12) + ' ' + (v.trendH + 10)} preserveAspectRatio="none">
         <Defs>
           <LinearGradient id="pqTrendFill" x1="0" y1="0" x2="0" y2="1">
             <Stop offset={0} stopColor={t.acc} stopOpacity={0.24} />
