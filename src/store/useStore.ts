@@ -87,6 +87,9 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
       const { tourFrom: _from, ...snap } = s.tourSnap as StatePatch & { tourFrom?: string };
       useStore.setState({ ...snap, tourSnap: null, tour: 'auto', activeIdx: null });
     }
+    // the bar field's draft always mirrors the implement in hand after a relaunch
+    const s2 = useStore.getState();
+    useStore.setState({ barDraft: String(s2.mode === 'dumbbell' ? s2.dbHandle : s2.bar), workDraft: null });
     logic.mount(opts.tourDelay ?? 500);
   };
   if (useStore.persist.hasHydrated()) finishHydration();

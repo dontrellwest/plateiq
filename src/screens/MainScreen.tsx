@@ -1,10 +1,10 @@
 // Main / Calculator (README screen 3). Layout and type follow option 1b's markup; every value
 // comes from the ported view model (useView), every control is a Tap with a name.
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { ScrollView as ScrollViewT } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
+import { PulseDot } from '../ui/PulseDot';
 import { useView } from '../store/useStore';
 import { Badge, Card, GradientBox, Hairline, IconButton, Num, Tap, Txt, anchorProps, stop } from '../ui/primitives';
 import { ARCHIVO, SCREEN_PAD, useTheme } from '../ui/theme';
@@ -51,17 +51,6 @@ function PillButton({ glyph, onPress, label, w = 40, inner = 28 }: { glyph: stri
       )}
     </Tap>
   );
-}
-
-function PulseDot() {
-  const { t, reduceMotion } = useTheme();
-  const o = useSharedValue(1);
-  useEffect(() => {
-    if (reduceMotion) { o.value = 1; return; }
-    o.value = withRepeat(withSequence(withTiming(0.3, { duration: 800, easing: Easing.inOut(Easing.ease) }), withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })), -1, false);
-  }, [reduceMotion, o]);
-  const st = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[{ width: 6, height: 6, borderRadius: 99, backgroundColor: t.acc }, st]} />;
 }
 
 function AddSetButton({ onPress }: { onPress: () => void }) {

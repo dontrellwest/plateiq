@@ -1,4 +1,5 @@
 // Screen switch + overlays. The prototype swaps screens on `state.screen`; there is no navigator.
+// Overlay order (bottom → top): rest panel, undo toast, sheet scrim + sheet, completion modal.
 
 import React from 'react';
 import { View } from 'react-native';
@@ -8,6 +9,11 @@ import { useView } from './store/useStore';
 import { useTheme } from './ui/theme';
 import { MainScreen } from './screens/MainScreen';
 import { IconButton, Num, Txt } from './ui/primitives';
+import { TimerPanel } from './ui/overlays/TimerPanel';
+import { UndoToast } from './ui/overlays/UndoToast';
+import { Scrim } from './ui/overlays/Sheet';
+import { LogSheet } from './ui/overlays/LogSheet';
+import { CompletionModal } from './ui/overlays/CompletionModal';
 
 function Placeholder({ title, onBack }: { title: string; onBack: () => void }) {
   return (
@@ -32,6 +38,14 @@ export function Root() {
       {v.isHistory ? <Placeholder title="History" onBack={v.goMain} /> : null}
       {v.isLibrary ? <Placeholder title="Exercises" onBack={v.goMain} /> : null}
       {v.isSettings ? <Placeholder title="Settings" onBack={v.goMain} /> : null}
+
+      {v.timer.show ? <TimerPanel timer={v.timer} onToggleExpand={v.toggleExpand} /> : null}
+      {v.undoShow ? <UndoToast label={v.undoLabel} aboveTimer={v.timer.show} onUndo={v.undoTap} onDismiss={v.undoDismiss} /> : null}
+
+      {v.sheet ? <Scrim onClose={v.closeSheet} /> : null}
+      {v.sheetLog ? <LogSheet v={v} /> : null}
+
+      {v.allDone ? <CompletionModal v={v} /> : null}
     </View>
   );
 }

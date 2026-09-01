@@ -3,7 +3,7 @@
 // (@testing-library/react-native 14: render / fireEvent / unmount are async.)
 
 import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
+import { render, fireEvent, screen, cleanup } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { INITIAL_STATE } from '../src/logic/PlateIQLogic';
 import { logic, useStore } from '../src/store/useStore';
@@ -14,6 +14,7 @@ const mount = () => render(<SafeAreaProvider initialMetrics={initialMetrics}><Ro
 const reset = () => useStore.setState({ ...INITIAL_STATE, onboard: false, tour: false }, true);
 
 beforeEach(reset);
+afterEach(async () => { await cleanup(); });
 
 describe('Main screen', () => {
   test.each([['barbell', 'dark'], ['barbell', 'light'], ['dumbbell', 'dark'], ['dumbbell', 'light'], ['landmine', 'dark'], ['landmine', 'light']] as const)(
@@ -65,7 +66,7 @@ describe('Main screen', () => {
     await mount();
     await fireEvent.press(screen.getByRole('button', { name: /^Empty bar, 45 lb/ }));
     expect(useStore.getState().activeIdx).toBe(0);
-    expect(screen.getByText('RESTING')).toBeTruthy();
+    expect(screen.getAllByText('RESTING').length).toBe(2);
     await fireEvent.press(screen.getByRole('button', { name: /^Empty bar, 45 lb/ })); // tap again → logged
     expect(screen.getByText('DONE')).toBeTruthy();
     expect(screen.getByLabelText(/Edit what you logged for Empty bar/)).toBeTruthy();
