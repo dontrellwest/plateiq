@@ -193,6 +193,7 @@ export function anchorProps(name?: string): AnchorProps {
     ref: (node: View | null) => { if (node) anchorNodes.set(name, node); else anchorNodes.delete(name); },
   };
 }
+export const hasAnchor = (name: string) => anchorNodes.has(name);
 export function measureAnchor(name: string): Promise<AnchorFrame | null> {
   const node = anchorNodes.get(name);
   if (!node || !node.measureInWindow) return Promise.resolve(null);

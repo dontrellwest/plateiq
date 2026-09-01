@@ -14,6 +14,12 @@ import { UndoToast } from './ui/overlays/UndoToast';
 import { Scrim } from './ui/overlays/Sheet';
 import { LogSheet } from './ui/overlays/LogSheet';
 import { CompletionModal } from './ui/overlays/CompletionModal';
+import { Onboarding } from './ui/overlays/Onboarding';
+import { TourOverlay } from './ui/tour/TourOverlay';
+import { tourHost } from './ui/tour/tourUI';
+import { logic } from './store/useStore';
+
+logic.tourHost = tourHost;
 
 function Placeholder({ title, onBack }: { title: string; onBack: () => void }) {
   return (
@@ -45,7 +51,11 @@ export function Root() {
       {v.sheet ? <Scrim onClose={v.closeSheet} /> : null}
       {v.sheetLog ? <LogSheet v={v} /> : null}
 
-      {v.allDone ? <CompletionModal v={v} /> : null}
+      {/* the tour's demo set is also the last set; its completion card would cover the log-sheet chapter */}
+      {v.allDone && !v.tourOn ? <CompletionModal v={v} /> : null}
+
+      {v.onboard ? <Onboarding v={v} /> : null}
+      {v.tourOn ? <TourOverlay v={v} /> : null}
     </View>
   );
 }

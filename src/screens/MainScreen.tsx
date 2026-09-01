@@ -10,6 +10,7 @@ import { Badge, Card, GradientBox, Hairline, IconButton, Num, Tap, Txt, anchorPr
 import { ARCHIVO, SCREEN_PAD, useTheme } from '../ui/theme';
 import { BarWell, LandmineWell } from '../ui/plates/Wells';
 import type { Shaft } from '../ui/plates/Wells';
+import { tourUI } from '../ui/tour/tourUI';
 
 type View_ = ReturnType<typeof useView>;
 type SetVM = View_['sets'][number];
@@ -237,14 +238,17 @@ function HeroCard({ v }: { v: View_ }) {
 
 // ---- screen ---------------------------------------------------------------
 
-export const feedRef = React.createRef<ScrollViewT>();
 
 export function MainScreen() {
   const v = useView();
   const { c, t } = useTheme();
   const cards = v.sets;
   return (
-    <ScrollView ref={feedRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 220 }} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never">
+    <ScrollView
+      ref={(r: ScrollViewT | null) => { tourUI.feed.ref = r; }}
+      onContentSizeChange={(_w: number, h: number) => { tourUI.feed.height = h; }}
+      style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 220 }} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never"
+    >
       {/* header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, paddingHorizontal: PAD, paddingBottom: 14 }}>
         <Tap label={'Exercise: ' + v.exercise + '. Open the exercise library'} onPress={v.goLibrary} pressedStyle={{ opacity: 0.7 }}>

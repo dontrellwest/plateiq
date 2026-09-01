@@ -27,6 +27,7 @@ export function LogSheet({ v }: { v: V }) {
       title="What you actually did"
       a11yLabel="Edit logged set"
       onClose={ls.close}
+      modal={!v.tourOn}
       intro={ls.title + ' · ' + ls.planLine + '. Sets rarely go exactly to plan — record the real thing and the trend stays honest.'}
     >
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>

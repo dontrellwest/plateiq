@@ -23,9 +23,11 @@ export interface SheetProps {
   /** scroll the body (tall sheets) */
   scroll?: boolean;
   maxHeight?: number;
+  /** false while the guided tour plays — the tour overlay is the modal layer then */
+  modal?: boolean;
 }
 
-export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxHeight }: SheetProps) {
+export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxHeight, modal = true }: SheetProps) {
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(MOTION.sheet, reduceMotion);
@@ -43,7 +45,7 @@ export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxH
   );
   return (
     <Animated.View
-      accessibilityViewIsModal
+      accessibilityViewIsModal={modal}
       accessibilityLabel={a11yLabel}
       style={[
         { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: c('card'), borderTopWidth: 1, borderColor: c('bd2'), borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10, paddingBottom: insets.bottom + 6, maxHeight },
