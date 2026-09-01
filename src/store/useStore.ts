@@ -50,6 +50,12 @@ export const logic = new PlateIQLogic(
   { startOnOnboarding: true, plateStyle: 'dimensional' },
 );
 
+// dev-only handle for driving the web preview from the console / automation
+declare const __DEV__: boolean;
+if (typeof __DEV__ !== 'undefined' && __DEV__ && typeof globalThis !== 'undefined') {
+  (globalThis as unknown as { plateiq?: unknown }).plateiq = { useStore, logic };
+}
+
 /** View model for screens — recomputed only when the state object changes. */
 export function useView() {
   const state = useStore();

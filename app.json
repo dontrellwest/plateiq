@@ -1,13 +1,17 @@
 {
   "expo": {
-    "name": "plateiq",
+    "name": "PlateIQ",
     "slug": "plateiq",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.plateiq.app",
+      "infoPlist": {
+        "UIViewControllerBasedStatusBarAppearance": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,10 +23,16 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "splash": {
+      "backgroundColor": "#0b0c0e",
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain"
+    }
   }
 }
