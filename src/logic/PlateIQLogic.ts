@@ -95,6 +95,8 @@ export const INITIAL_STATE: AppState = {
   tourSeen: false,
   records: [],
   restEndsAt: null,
+  tourSnap: null,
+  reduceMotion: false,
 };
 
 /** The harness's headless host: a plain object, patches merged with Object.assign. */
@@ -144,17 +146,29 @@ export class PlateIQLogic {
 
   // ---- lifecycle (called by the store binding instead of componentDidMount) ----
   /** One second passed. Expires the undo toast and counts the rest timer down. */
-  tick() {
+  _ticking = false;
+  tick(now: number = Date.now()) {
     const s = this.state;
-    if (s.undo && Date.now() - s.undoAt > 7000) this.setState({ undo: null });
+    if (s.undo && now - s.undoAt > 7000) this.setState({ undo: null });
     if (s.activeIdx === null || s.paused) return;
-    this.setState((x) => ({ remaining: Math.max(0, x.remaining - 1) }));
+    // with a wall-clock end time (set by the store binding) the countdown survives backgrounding;
+    // headless (harness) it decrements one second per tick exactly like the prototype
+    this._ticking = true;
+    this.setState((x) => ({
+      remaining: x.restEndsAt ? Math.max(0, Math.round((x.restEndsAt - now) / 1000)) : Math.max(0, x.remaining - 1),
+    }));
+    this._ticking = false;
+  }
+  /** Re-anchor the countdown's end time to now + remaining (called whenever remaining is set by a user action). */
+  syncClock(now: number = Date.now()) {
+    const s = this.state;
+    this.setState({ restEndsAt: s.activeIdx !== null && !s.paused ? now + s.remaining * 1000 : null });
   }
   /** Mount decision: play the tour on first launch, else settle `tour` to false. */
   mount(delayMs = 500) {
     const ob = this.state.onboard === null ? (!this.props || this.props.startOnOnboarding !== false) : this.state.onboard;
     if (this.state.tour === 'auto') {
-      if (ob) {
+      if (ob && !this.state.tourSeen) {
         // never start (and re-render) while the view is still laying out
         this._tourBoot = setTimeout(() => this.startTour('onboard'), delayMs);
       } else this.setState({ tour: false });
@@ -636,6 +650,7 @@ export class PlateIQLogic {
       tourCap: '', tourCard: this._tourFrames[0].card || null,
       screen: 'main', mode: 'barbell', working: 225, sheet: false, logIdx: null,
       undo: null, paused: false, expanded: true, ...this.progressReset(),
+      tourSnap: { ...this._tourSnap, tourFrom: from } as StatePatch,
     });
     caf(this._tourRaf);
     if (this.tourHost) this.tourHost.setProgress(0);
@@ -667,7 +682,7 @@ export class PlateIQLogic {
     caf(this._tourRaf);
     clearTimeout(this._tourTapTo);
     this._tourLast = 0;
-    const next: StatePatch = { ...(this._tourSnap || {}), tour: false, tourPaused: false, tourWait: null, tourCard: null, tourCap: '', tourSeen: true };
+    const next: StatePatch = { ...(this._tourSnap || {}), tour: false, tourPaused: false, tourWait: null, tourCard: null, tourCap: '', tourSeen: true, tourSnap: null };
     // skipping only skips the animation — setup steps always follow when launched from onboarding
     if (this._tourFrom === 'onboard') { next.onboard = true; next.onboardStep = 0; next.tourNote = !finished; }
     this._tourSnap = null;

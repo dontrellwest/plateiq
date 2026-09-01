@@ -102,6 +102,8 @@ export interface AppState {
   tourSeen: boolean;
   records: SessionRecord[];
   restEndsAt: number | null;
+  tourSnap: StatePatch | null; // persisted so a kill mid-tour restores the real workout
+  reduceMotion: boolean;
 }
 
 export type StatePatch = Partial<AppState>;
