@@ -61,6 +61,20 @@ describe('steppers', () => {
     db.setState({ dbTotal: 15 }); db.renderVals().decWorking(); expect(state(db).dbTotal).toBe(10);
   });
 
+  test('a press lands on the rounding grid, so the field and the card agree (kg, roundTo 0.5 and 2.5)', () => {
+    const l = fresh({ units: 'kg', bar: 20, working: 100, roundTo: 0.5 });
+    l.renderVals().incWorking();
+    expect(state(l).working).toBe(103);
+    expect(l.plan().work.want).toBe(103);
+    l.renderVals().decWorking();
+    expect(state(l).working).toBe(100);
+    const c = fresh({ units: 'kg', bar: 20, working: 100, roundTo: 2.5 });
+    c.renderVals().incWorking(); expect(state(c).working).toBe(105);
+    c.renderVals().decWorking(); expect(state(c).working).toBe(100);
+    const lb = fresh({ units: 'lb', bar: 45, working: 225, roundTo: 0.25 });
+    lb.renderVals().incWorking(); expect(state(lb).working).toBe(230);
+  });
+
   test('a landmine press moves one plate step on the loaded side, not one rounding step', () => {
     const l = fresh({ mode: 'landmine', anchorType: 'sleeve', lmTarget: 135, roundTo: 0.25 });
     l.renderVals().incWorking();
@@ -82,6 +96,18 @@ describe('steppers', () => {
     const kg = fresh({ units: 'kg', bar: 20, working: 20 });
     kg.setBarWeight(25);
     expect(state(kg).working).toBe(27.5);
+  });
+});
+
+describe('history', () => {
+  test('a record with no sets is skipped instead of crashing the History screen', () => {
+    const l = fresh({ screen: 'history', records: [
+      { id: 'a', at: Date.now() - 86400000, exercise: 'Bench press', mode: 'barbell', units: 'lb', sets: [] },
+      { id: 'b', at: Date.now(), exercise: 'Bench press', mode: 'barbell', units: 'lb', sets: [{ label: 'Set 1', w: 225, r: 5, planW: 225, planR: 5 }] },
+    ] as AppState['records'] });
+    expect(() => l.renderVals()).not.toThrow();
+    // and storage validation drops a record that has no sets array at all
+    expect(sanitizePersisted({ records: [{ id: 'x', at: 1, exercise: 'Squat' }] })).toEqual({});
   });
 });
 

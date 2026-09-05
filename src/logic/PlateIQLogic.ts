@@ -997,11 +997,18 @@ export class PlateIQLogic {
     // a target already at or below that floor simply stays where it is.
     const down = (cur: number, next: number, floor: number) => (next >= floor ? next : cur <= floor ? cur : floor);
     const stepTo = (cur: number, next: number, floor: number) => (next > cur ? next : down(cur, next, floor));
+    // a press moves one plate step, then lands on the rounding grid the plan uses (2x roundTo for a
+    // barbell, roundTo per dumbbell) so the field and the card always agree; a grid coarser than the
+    // step becomes the step, otherwise a press could snap straight back to where it started
+    const grid = (st.roundTo || step) * (dbl ? 1 : 2);
+    const inc = Math.max(step, grid);
+    // round in the direction of travel so a press up and a press down return to the same number
+    const snap = (n: number, dir: number) => Math.round((dir > 0 ? Math.ceil(n / grid - 1e-9) : Math.floor(n / grid + 1e-9)) * grid * 1000) / 1000;
     const bump = (d: number) => this.setState((s) => (dbl
-      ? { dbTotal: stepTo(s.dbTotal, s.dbTotal + d, s.dbHandle + step), ...this.progressReset() }
+      ? { dbTotal: stepTo(s.dbTotal, snap(s.dbTotal + Math.sign(d) * inc, d), s.dbHandle + step), ...this.progressReset() }
       : m === 'landmine'
         ? { lmTarget: stepTo(s.lmTarget, lmStep(s.lmTarget, d), this.lmFloor(s)), ...this.progressReset() }
-        : { working: stepTo(s.working, s.working + d, s.bar + step), ...this.progressReset() }));
+        : { working: stepTo(s.working, snap(s.working + Math.sign(d) * inc, d), s.bar + step), ...this.progressReset() }));
 
     const scale = dbl ? (st.dbPair ? 0.5 : 0.62) : 1;
     const pScale = m === 'landmine' ? 0.44 : scale;
@@ -1785,7 +1792,7 @@ export class PlateIQLogic {
       const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()];
       return day + ' ' + d.getDate() + ' ' + mon + (d.getFullYear() !== t.getFullYear() ? ' ' + d.getFullYear() : '');
     };
-    const sessions = recs.slice().reverse().slice(0, 8).map((r) => {
+    const sessions = recs.filter((r) => Array.isArray(r.sets) && r.sets.length > 0).slice().reverse().slice(0, 8).map((r) => {
       const top = r.sets.reduce((m, s) => (s.w > m.w ? s : m), r.sets[0]);
       const v = r.sets.reduce((a, s) => a + s.w * s.r, 0);
       return {

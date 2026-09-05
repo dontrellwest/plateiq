@@ -47,7 +47,7 @@ const arrayOk: Partial<Record<keyof AppState, (item: unknown) => boolean>> = {
   doneIdx: (x) => isNum(x),
   session: (x) => typeof x === 'string',
   sessionDone: (x) => typeof x === 'string',
-  records: (x) => isObj(x),
+  records: (x) => isObj(x) && Array.isArray(x.sets) && typeof x.exercise === 'string' && isNum(x.at),
   warmups: (x) => isObj(x) && typeof x.id === 'string' && isNum(x.pct) && isNum(x.reps) && isNum(x.rest),
 };
 
