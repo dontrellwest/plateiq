@@ -32,7 +32,7 @@ export function LibraryScreen({ v }: { v: V }) {
           returnKeyType="search"
           style={[{ flex: 1, minWidth: 0, color: c('tx2'), fontSize: 13.5, padding: 0 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as object) : null]}
         />
-        <Tap label="Clear search" onPress={v.clearSearch} disabled={!v.hasSearch} accessibilityElementsHidden={!v.hasSearch} style={{ width: 26, height: 26, borderRadius: 99, backgroundColor: c(v.clearBg), alignItems: 'center', justifyContent: 'center' }} pressedStyle={{}}>
+        <Tap label="Clear search" onPress={v.clearSearch} disabled={!v.hasSearch} accessibilityElementsHidden={!v.hasSearch} hitSlop={9} style={{ width: 26, height: 26, borderRadius: 99, backgroundColor: c(v.clearBg), alignItems: 'center', justifyContent: 'center' }} pressedStyle={{}}>
           <Txt size={12} color={v.clearFg}>✕</Txt>
         </Tap>
       </View>
@@ -40,15 +40,18 @@ export function LibraryScreen({ v }: { v: V }) {
 
       <View style={{ gap: 9 }}>
         {v.exercises.map((x) => (
-          <Tap key={x.name} label={x.name + ', ' + x.modeLabel + ' · ' + x.tag + ', last top set ' + x.lastLabel + (x.active ? ', current' : '')} onPress={x.pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c(x.cardBg), borderWidth: 1, borderColor: c(x.cardBd), borderRadius: 18, paddingVertical: 13, paddingHorizontal: 14 }} pressedStyle={{ borderColor: c('bd3') }}>
-            <View style={{ flex: 1 }}>
-              <Num size={16} weight={700} color="tx2" ls={-0.2}>{x.name}</Num>
-              <Txt size={12} color="mut3" style={{ marginTop: 3 }}>{x.modeLabel} · {x.tag}</Txt>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Num size={14.5} weight={700} color="mut">{x.lastLabel}</Num>
-              <Txt size={10.5} color="mut4" style={{ marginTop: 2 }}>last top set</Txt>
-            </View>
+          <Tap key={x.name} accessible={false} label={x.name} onPress={x.pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c(x.cardBg), borderWidth: 1, borderColor: c(x.cardBd), borderRadius: 18, paddingVertical: 13, paddingHorizontal: 14 }} pressedStyle={{ borderColor: c('bd3') }}>
+            {/* VoiceOver: the row itself is not one element, or the queue button inside it would vanish */}
+            <Tap label={x.name + ', ' + x.modeLabel + ' · ' + x.tag + ', last top set ' + x.lastLabel + (x.active ? ', current' : '')} onPress={x.pick} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }} pressedStyle={{ opacity: 0.8 }}>
+              <View style={{ flex: 1 }}>
+                <Num size={16} weight={700} color="tx2" ls={-0.2}>{x.name}</Num>
+                <Txt size={12} color="mut3" style={{ marginTop: 3 }}>{x.modeLabel} · {x.tag}</Txt>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Num size={14.5} weight={700} color="mut">{x.lastLabel}</Num>
+                <Txt size={10.5} color="mut4" style={{ marginTop: 2 }}>last top set</Txt>
+              </View>
+            </Tap>
             <Tap label={x.queueAria} onPress={x.queue} style={{ width: 40, height: 40, borderRadius: 13, backgroundColor: c(x.queueBg), alignItems: 'center', justifyContent: 'center' }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
               <Txt size={16} weight={700} color={x.queueFg}>{x.queueMark}</Txt>
             </Tap>

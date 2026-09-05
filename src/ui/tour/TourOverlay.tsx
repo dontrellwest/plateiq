@@ -11,6 +11,7 @@ import { Num, Tap, Txt } from '../primitives';
 import { useTheme } from '../theme';
 import { bezier } from '../motion';
 import { tourUI } from './tourUI';
+import { announce } from '../overlays/TimerPanel';
 
 type V = ReturnType<typeof useView>;
 
@@ -71,6 +72,9 @@ export function TourOverlay({ v }: { v: V }) {
   const { c, t } = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  // iOS VoiceOver ignores live regions — each caption and card is announced as it appears
+  useEffect(() => { if (v.tourCardOn) announce(v.tourCardTitle + '. ' + v.tourCardSub); }, [v.tourCardOn, v.tourCardTitle, v.tourCardSub]);
+  useEffect(() => { if (v.tourCap) announce(v.tourCap); }, [v.tourCap, v.tourKey]);
   return (
     <View accessibilityViewIsModal accessibilityLabel="Guided tour" pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 30 }}>
       <Tap label="Pause or resume the tour" onPress={v.tourTap} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 30 }} pressedStyle={{}} />

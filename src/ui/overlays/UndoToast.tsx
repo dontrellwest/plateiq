@@ -1,7 +1,8 @@
 // Undo toast: shares the bottom slot with the rest panel and stacks above it while a rest runs.
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
+import { announce } from './TimerPanel';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tap, Txt } from '../primitives';
@@ -13,6 +14,8 @@ export function UndoToast({ label, aboveTimer, onUndo, onDismiss }: { label: str
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(220, reduceMotion);
+  // iOS VoiceOver ignores live regions: say what happened, and that it can be undone
+  useEffect(() => { announce(label + '. Undo available'); }, [label]);
   return (
     <Animated.View
       accessibilityRole="alert"
@@ -27,7 +30,7 @@ export function UndoToast({ label, aboveTimer, onUndo, onDismiss }: { label: str
       <Tap label="Undo the last change" onPress={onUndo} style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 11, backgroundColor: c('accA16') }} pressedStyle={{ backgroundColor: c('accA28') }}>
         <Txt size={12.5} weight={700} color="accDeep">Undo</Txt>
       </Tap>
-      <Tap label="Dismiss" onPress={onDismiss} style={{ width: 32, height: 32, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }} pressedStyle={{}}>
+      <Tap label="Dismiss" onPress={onDismiss} style={{ width: 44, height: 44, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }} pressedStyle={{}}>
         <Txt size={12} color="mut4">✕</Txt>
       </Tap>
       <View />

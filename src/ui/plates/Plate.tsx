@@ -19,6 +19,12 @@ export interface PlateProps {
   radius?: number;
 }
 
+// renderVals rebuilds every PlateVisual object each pass, so the default shallow compare would
+// re-render all plates on every store change; compare the fields the drawing depends on instead
+const samePlate = (a: PlateProps, b: PlateProps) =>
+  a.hero === b.hero && a.radius === b.radius && a.p.w === b.p.w && a.p.h === b.p.h && a.p.fs === b.p.fs
+  && a.p.label === b.p.label && a.p.skin === b.p.skin;
+
 export const Plate = React.memo(function Plate({ p, hero = false, radius = 5 }: PlateProps) {
   const { reduceMotion } = useTheme();
   const id = React.useMemo(() => 'pl' + (++seq).toString(36), []);
@@ -84,6 +90,7 @@ export const Plate = React.memo(function Plate({ p, hero = false, radius = 5 }: 
           >
             <Text
               numberOfLines={1}
+              allowFontScaling={false}
               style={{ lineHeight: lh, fontFamily: ARCHIVO[700], fontSize: p.fs, letterSpacing: p.fs * 0.02, color: p.skin.fg }}
             >
               {p.label}
@@ -93,4 +100,4 @@ export const Plate = React.memo(function Plate({ p, hero = false, radius = 5 }: 
       </View>
     </Animated.View>
   );
-});
+}, samePlate);

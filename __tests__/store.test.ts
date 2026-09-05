@@ -178,11 +178,12 @@ describe('persistence', () => {
   test('partialize keeps settings, rack, queue, plan, logs and flow flags — nothing transient', () => {
     const keys = Object.keys(partialize(INITIAL_STATE)).sort();
     expect(keys).toEqual([...PERSISTED_KEYS].sort());
-    const transient: Array<keyof AppState> = ['activeIdx', 'remaining', 'restTotal', 'restEndsAt', 'sheet', 'screen', 'search',
+    const transient: Array<keyof AppState> = ['remaining', 'sheet', 'screen', 'search',
       'workDraft', 'undo', 'undoAt', 'logIdx', 'trendEx', 'tour', 'tourPaused', 'tourWait', 'tourCap', 'tourCard', 'tourKey',
-      'tourNote', 'systemDark', 'paused', 'expanded', 'revSide', 'reduceMotion'];
+      'tourNote', 'systemDark', 'revSide', 'reduceMotion'];
     transient.forEach((k) => expect(keys).not.toContain(k));
-    (['units', 'qty', 'session', 'records', 'tourSeen', 'warmups', 'log', 'doneIdx'] as const).forEach((k) => expect(keys).toContain(k));
+    // a rest in progress survives a relaunch through its wall-clock end time (remaining is recomputed)
+    (['units', 'qty', 'session', 'records', 'tourSeen', 'warmups', 'log', 'doneIdx', 'activeIdx', 'restEndsAt', 'restTotal', 'paused'] as const).forEach((k) => expect(keys).toContain(k));
   });
 
   test('a saved state rehydrates over the defaults', async () => {

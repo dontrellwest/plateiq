@@ -6,7 +6,7 @@ import { ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { useView } from '../../store/useStore';
-import { Num, Tap, Txt } from '../primitives';
+import { Num, Tap, Txt, useA11yFocus } from '../primitives';
 import { MOTION, useTheme } from '../theme';
 import { useSlideUp } from '../motion';
 import { RackRows } from '../RackRows';
@@ -36,14 +36,17 @@ export function Onboarding({ v }: { v: V }) {
   const { c, t, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(MOTION.ring, reduceMotion);
+  const titleRef = useA11yFocus<View>();
   return (
-    <Animated.View accessibilityViewIsModal style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: t.bg, paddingTop: insets.top + 27, paddingHorizontal: 22, paddingBottom: insets.bottom }, slide]}>
+    <Animated.View accessibilityViewIsModal style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: t.bg, paddingTop: insets.top + 27, paddingHorizontal: 22, paddingBottom: Math.max(insets.bottom, 16) }, slide]}>
       <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }} accessibilityLabel={'Step ' + (v.onboardStep + 1)}>
         {v.onboardDots.map((d, i) => <View key={i} style={{ height: 6, width: d.w, borderRadius: 99, backgroundColor: c(d.bg) }} />)}
       </View>
 
       <View style={{ marginTop: 34 }}>
-        <Num size={30} weight={800} ls={-0.8} lh={35} accessibilityRole="header">{v.onboardTitle}</Num>
+        <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={'Step ' + (v.onboardStep + 1) + '. ' + v.onboardTitle}>
+          <Num size={30} weight={800} ls={-0.8} lh={35}>{v.onboardTitle}</Num>
+        </View>
         <Txt size={14} lh={21.7} color="mut2" style={{ marginTop: 10 }}>{v.onboardBody}</Txt>
       </View>
 

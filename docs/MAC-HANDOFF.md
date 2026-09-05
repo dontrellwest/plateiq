@@ -70,6 +70,7 @@ For a side-by-side with the prototype, serve `../design_handoff_plateiq` with an
 
 - `npx expo prebuild` / `eas build -p ios` need an Apple Developer account and EAS (free tier
   exists; iOS cloud builds are limited on it).
-- `app.json` already has `bundleIdentifier: com.plateiq.app`, portrait-only, dark splash, and
-  `userInterfaceStyle: automatic` for system theme following.
+- `app.json` already has `bundleIdentifier: com.plateiq.app`, portrait-only, iPhone-only
+  (`supportsTablet: false`), a dark splash via the `expo-splash-screen` plugin,
+  `ITSAppUsesNonExemptEncryption: false`, and `userInterfaceStyle: automatic`.
 - App icon / splash images are still the Expo defaults in `assets/`.

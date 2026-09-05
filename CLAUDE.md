@@ -23,7 +23,12 @@ polish. See `README.md` for the layout and `docs/MAC-HANDOFF.md` for running on 
 - Every control is a `Tap` (accessible Pressable with role + label + 44 pt target). Plate diagrams
   are images with spoken load descriptions. Reduced motion disables every animation.
 - Gradients are react-native-svg only (no expo-linear-gradient). Archivo is for numerals only.
-- After touching the maths or reducers: `npm run test:full` (≈10 min) must stay green.
+- After touching the maths or reducers: `npm run test:full` (≈10 min) must stay green. `npm test` also
+  runs `__tests__/hardening.test.ts` (one test per fixed defect) and `__tests__/invariants.test.ts`
+  (randomised; the seed is printed — reproduce with `PLATEIQ_SEED`). The differential test compares
+  `renderVals().warn` among other fields, so never change the warn copy or `missSet` logic.
+- Containers that hold controls (set cards, hero card, library rows, the rest-timer header) are
+  `Tap accessible={false}`; VoiceOver would otherwise swallow the controls inside them.
 
 ## Agreed deviations from the prototype (user-approved 2026-09-01)
 Listed in README.md "Deviations". Highlights: target steppers / rounding / anchor / home-gym /
@@ -41,7 +46,10 @@ npx expo start --web  # browser preview; window.plateiq = { useStore, logic } in
 ```
 
 ## Known leftovers
-- App icon and splash are Expo defaults (`assets/`).
+- App icon is the Expo default (`assets/`); the splash is configured through the `expo-splash-screen`
+  plugin in app.json (dark, `splash-icon.png`).
+- See `docs/HARDENING.md` for the 2026-09-05 audit: what was fixed and what was deliberately left
+  (unit round-trip rounding, timer only on Main, no background notification, lb-only tour history).
 - Verified on the iOS 26.5 Simulator (iPhone 17 Pro, Expo Go) on 2026-09-05: tour, onboarding,
   timer, completion, all sheets and screens, light/dark, reduced motion, Dynamic Type +2,
   backgrounding during a rest. Not yet on a real device: VoiceOver, haptics, touch targets.

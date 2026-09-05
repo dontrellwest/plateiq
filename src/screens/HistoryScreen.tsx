@@ -125,7 +125,7 @@ export function HistoryScreen({ v }: { v: V }) {
         {v.trendOptions.length ? (
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 13 }} accessibilityRole="radiogroup">
             {v.trendOptions.map((o) => (
-              <Tap key={o.name} label={'Show trend for ' + o.name} role="radio" selected={o.on} onPress={o.pick} minSize={40} style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 11, backgroundColor: c(o.bg) }}>
+              <Tap key={o.name} label={'Show trend for ' + o.name} role="radio" selected={o.on} onPress={o.pick} hitSlop={{ top: 4, bottom: 4 }} style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 11, backgroundColor: c(o.bg) }}>
                 <Txt size={11.5} weight={600} color={o.fg}>{o.name}</Txt>
               </Tap>
             ))}

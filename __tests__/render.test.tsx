@@ -72,7 +72,9 @@ describe('Main screen', () => {
     expect(screen.getByLabelText(/Edit what you logged for Empty bar/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(/^Top set\./));
     await fireEvent.press(screen.getByLabelText(/^Top set\./));
-    expect(screen.getByLabelText(/Edit what you logged for Working set: 225 lb × 5/)).toBeTruthy();
+    // logging the last set from its card finishes the exercise: the completion card now covers the screen
+    expect(screen.getByText(/Bench press done/)).toBeTruthy();
+    expect(screen.getByLabelText(/Edit what you logged for Working set: 225 lb × 5/, { includeHiddenElements: true })).toBeTruthy();
   });
 
   test('steppers, mode segment, scheme rows and the warm-up editors are reachable controls', async () => {

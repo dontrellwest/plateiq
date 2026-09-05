@@ -47,7 +47,7 @@ function DiffChip({ text, tone }: { text: string; tone: 'strip' | 'add' }) {
   const strip = tone === 'strip';
   return (
     <View style={{ paddingVertical: 6, paddingHorizontal: 10, borderRadius: 9, backgroundColor: c(strip ? 'dan2A14' : 'accA14'), borderWidth: 1, borderColor: c(strip ? 'dan2A40' : 'accA42') }}>
-      <Num size={13} weight={700} color={strip ? 'dan3' : 'accHi'}>{text}</Num>
+      <Num size={13} weight={700} color={strip ? 'dan3' : 'accDeep'}>{text}</Num>
     </View>
   );
 }
@@ -68,17 +68,20 @@ export function TimerPanel({ timer, onToggleExpand }: { timer: Timer; onToggleEx
   const remaining = timer.remaining ?? 0;
   const total = timer.total ?? 1;
   const lastSpoken = useRef<number | null>(null);
+  const lastIdx = useRef<number | undefined>(undefined);
 
   // spoken cadence: start, every 30 s, 10 s, zero — never every tick
   useEffect(() => {
     if (!timer.show) return;
+    // a different set started resting while the panel stayed mounted: that is a new rest
+    if (timer.idx !== lastIdx.current) { lastIdx.current = timer.idx; lastSpoken.current = null; }
     if (timer.paused) { lastSpoken.current = null; return; }
     const first = lastSpoken.current === null;
     const hit = remaining === 0 || remaining === 10 || (remaining > 0 && remaining % 30 === 0);
     if (first) announce('Rest started, ' + timer.mmss + '. ' + (timer.nextLabel || ''));
     else if (hit && lastSpoken.current !== remaining) announce(remaining === 0 ? 'Rest over. ' + (timer.nextLabel || '') : timer.mmss + ' remaining');
     if (first || hit) lastSpoken.current = remaining;
-  }, [remaining, timer.show, timer.paused, timer.mmss, timer.nextLabel]);
+  }, [remaining, timer.show, timer.paused, timer.mmss, timer.nextLabel, timer.idx]);
 
   if (!timer.show) return null;
   const dash = RING_LEN * Math.min(1, Math.max(0, 1 - remaining / total));
@@ -91,19 +94,22 @@ export function TimerPanel({ timer, onToggleExpand }: { timer: Timer; onToggleEx
         slide,
       ]}
     >
-      <Tap label={timer.aria || 'Rest timer'} onPress={onToggleExpand} accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }} pressedStyle={{}}>
-        <Ring dash={dash} mmss={timer.mmss || '0:00'} />
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            <PulseDot />
-            <Txt size={12} weight={700} color="accDeep" ls={0.36}>{timer.statusLabel}</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
+        {/* the ring + labels toggle the panel; the CTA is a sibling so VoiceOver can reach it */}
+        <Tap label={timer.aria || 'Rest timer'} onPress={onToggleExpand} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13 }} pressedStyle={{}}>
+          <Ring dash={dash} mmss={timer.mmss || '0:00'} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <PulseDot />
+              <Txt size={12} weight={700} color="accDeep" ls={0.36}>{timer.statusLabel}</Txt>
+            </View>
+            <Txt size={13.5} weight={500} color="tx3" style={{ marginTop: 4 }}>{timer.nextLabel}</Txt>
           </View>
-          <Txt size={13.5} weight={500} color="tx3" style={{ marginTop: 4 }}>{timer.nextLabel}</Txt>
-        </View>
+        </Tap>
         <Tap label={timer.cta || 'Done'} onPress={timer.onCta!} {...anchorProps('rest-cta')} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, borderRadius: 14, backgroundColor: t.acc }} pressedStyle={{ backgroundColor: t.accHi }}>
           <Txt size={13} weight={700} color="accInk">{timer.cta}</Txt>
         </Tap>
-      </Tap>
+      </View>
 
       <Hairline color="bd4" style={{ marginTop: 13, marginBottom: 12 }} />
 

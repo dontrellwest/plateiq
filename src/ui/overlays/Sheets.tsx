@@ -74,7 +74,7 @@ export function SchemeSheet({ v }: { v: V }) {
 function MiniPlate({ p }: { p: V['revLeft'][number] }) {
   return (
     <GradientBox w={p.w} h={p.h} radius={3} border={p.skin.bd} stops={[{ offset: 0, color: p.skin.stops[0] }, { offset: p.skin.mid, color: p.skin.stops[1] }, { offset: 1, color: p.skin.stops[2] }]} style={{ alignItems: 'center', justifyContent: 'center', marginHorizontal: 0.5 }}>
-      {p.label ? <Num size={p.fs} weight={800} color={p.skin.fg}>{p.label}</Num> : null}
+      {p.label ? <Num size={p.fs} weight={800} color={p.skin.fg} allowFontScaling={false}>{p.label}</Num> : null}
     </GradientBox>
   );
 }
@@ -104,7 +104,7 @@ export function ReverseSheet({ v }: { v: V }) {
         {v.revButtons.map((b) => (
           <Tap key={b.w} label={'Add a ' + b.label + ' ' + v.unit + ' plate'} onPress={b.add} style={{ minWidth: 52, minHeight: 44, paddingHorizontal: 12, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: b.skin.bd, backgroundColor: b.skin.stops[1], alignItems: 'center', justifyContent: 'center' }} pressedStyle={{ opacity: 0.85 }}>
             <GradientBox style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} stops={[{ offset: 0, color: b.skin.stops[0] }, { offset: b.skin.mid, color: b.skin.stops[1] }, { offset: 1, color: b.skin.stops[2] }]} />
-            <Num size={14} weight={800} color={b.skin.fg}>{b.label}</Num>
+            <Num size={14} weight={800} color={b.skin.fg} allowFontScaling={false}>{b.label}</Num>
           </Tap>
         ))}
       </View>

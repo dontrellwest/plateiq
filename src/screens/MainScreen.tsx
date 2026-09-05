@@ -2,7 +2,9 @@
 // comes from the ported view model (useView), every control is a Tap with a name.
 
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { InputAccessoryView, Keyboard, Platform, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { announce } from '../ui/overlays/TimerPanel';
 import type { ScrollView as ScrollViewT } from 'react-native';
 import { PulseDot } from '../ui/PulseDot';
 import { useView } from '../store/useStore';
@@ -80,16 +82,35 @@ function NumberField({ value, onChange, onCommit, size, weight, width, ls, label
       selectTextOnFocus
       keyboardType="decimal-pad"
       returnKeyType="done"
+      // the decimal pad has no return key: the accessory bar's Done is the only way to commit by hand
+      inputAccessoryViewID={Platform.OS === 'ios' ? KEYBOARD_DONE : undefined}
       style={[
         {
           fontFamily: ARCHIVO[weight], fontSize: size, color: c('tx'), letterSpacing: ls, padding: 0, margin: 0,
-          width: scaledWidth, flex, minWidth: 0, textAlign: align, fontVariant: ['tabular-nums'],
+          width: scaledWidth, flex, flexShrink: 1, minWidth: 0, textAlign: align, fontVariant: ['tabular-nums'],
           borderBottomWidth: 1, borderStyle: focus ? 'solid' : 'dashed', borderBottomColor: focus ? c('acc') : c(dashed),
           lineHeight: Math.round(size * 1.15),
         },
         Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as object) : null,
       ]}
     />
+  );
+}
+
+const KEYBOARD_DONE = 'plateiq-number-done';
+
+/** iOS: a Done bar above the decimal pad (which has no return key). Blurring the field commits it. */
+function KeyboardDoneBar() {
+  const { c } = useTheme();
+  if (Platform.OS !== 'ios') return null;
+  return (
+    <InputAccessoryView nativeID={KEYBOARD_DONE}>
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: c('card2'), borderTopWidth: 1, borderColor: c('bd2'), paddingHorizontal: 12, paddingVertical: 6 }}>
+        <Tap label="Done editing" onPress={() => Keyboard.dismiss()} style={{ minHeight: 44, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 12, backgroundColor: c('ctl2') }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
+          <Txt size={14} weight={700} color="accDeep">Done</Txt>
+        </Tap>
+      </View>
+    </InputAccessoryView>
   );
 }
 
@@ -100,19 +121,22 @@ function SetCard({ s, v }: { s: SetVM; v: View_ }) {
   const shaft: Shaft = { straight: v.barStraight, h: v.shaftH, parts: v.shaftParts, boxW: v.shaftBoxW, boxH: v.shaftBoxH };
   return (
     <Tap
+      // sighted users tap anywhere on the card; VoiceOver gets the card's controls individually and
+      // the card's own action on the CTA row below (an accessible Pressable would swallow its children)
+      accessible={false}
       label={s.aria} onPress={s.tap} {...anchorProps('set-' + s.idx)}
       style={{ overflow: 'hidden', backgroundColor: c(s.cardBg), borderWidth: 1, borderColor: c(s.cardBd), borderRadius: 20, paddingTop: 13, paddingHorizontal: 14, paddingBottom: 11, opacity: s.opacity }}
       pressedStyle={{ opacity: Math.max(0.6, s.opacity - 0.15) }}
     >
       <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, backgroundColor: c(s.rail) }} />
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <View style={{ flexDirection: 'row', gap: 11, alignItems: 'center', flexShrink: 1 }}>
+        <View style={{ flexDirection: 'row', gap: 11, alignItems: 'center', flexShrink: 1, minWidth: 0 }}>
           <View style={{ width: 27, height: 27, borderRadius: 99, borderWidth: 1, borderColor: c(s.numBd), backgroundColor: c(s.numBg), alignItems: 'center', justifyContent: 'center' }}>
-            <Num size={12.5} weight={700} color={s.numFg}>{s.n}</Num>
+            <Num size={12.5} weight={700} color={s.numFg} maxFontSizeMultiplier={1.3}>{s.n}</Num>
           </View>
-          <View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 40 }}>
-              <Num size={16.5} weight={700} color={s.titleFg} ls={-0.2}>{s.label}</Num>
+          <View style={{ flexShrink: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 40, flexWrap: 'wrap' }}>
+              <Num size={16.5} weight={700} color={s.titleFg} ls={-0.2} numberOfLines={1} style={{ flexShrink: 1 }}>{s.label}</Num>
               {s.editable ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: c('ctl'), borderRadius: 99, padding: 2 }}>
                   <PillButton glyph="–" label={'Lower ' + s.label + ' by 5 percent'} onPress={s.pctDown!} />
@@ -161,9 +185,11 @@ function SetCard({ s, v }: { s: SetVM; v: View_ }) {
         )}
         {s.empty ? <Txt size={11} weight={500} color="mut4" style={{ position: 'absolute', left: 12, top: 10 }}>Bar only</Txt> : null}
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 9 }}>
-        <Txt size={12} color="mut3" numberOfLines={1} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{s.chips}</Txt>
-        <Txt size={11.5} weight={600} color={s.ctaFg}>{s.cta}</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 5 }}>
+        <Txt size={12} color="mut3" numberOfLines={2} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{s.chips}</Txt>
+        <Tap label={s.aria} onPress={s.tap} style={{ minHeight: 44, justifyContent: 'center' }} pressedStyle={{ opacity: 0.7 }}>
+          <Txt size={11.5} weight={600} color={s.ctaFg}>{s.cta}</Txt>
+        </Tap>
       </View>
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 0, backgroundColor: t.transparent }} />
     </Tap>
@@ -190,6 +216,7 @@ function HeroCard({ v }: { v: View_ }) {
   const shaft: Shaft = { straight: v.barStraight, h: v.shaftH, parts: v.shaftParts, boxW: v.shaftBoxW, boxH: v.shaftBoxH };
   return (
     <Tap
+      accessible={false}
       label={'Top set. ' + w.aria + '. Tap when done to start the rest timer'} onPress={v.tapWork} {...anchorProps('set-' + v.workIndex)}
       style={[{ borderRadius: 22, borderWidth: 1, borderColor: c('accA28'), overflow: 'hidden' }, Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.55, shadowRadius: 12, shadowOffset: { width: 0, height: 8 } }, default: {} })]}
       pressedStyle={{ opacity: 0.9 }}
@@ -229,9 +256,11 @@ function HeroCard({ v }: { v: View_ }) {
           ) : null}
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 11 }}>
-          <Txt size={12} color="heroMut" numberOfLines={1} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{w.chips}</Txt>
-          <Txt size={11.5} weight={600} color="accDeep">{w.cta}</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 7 }}>
+          <Txt size={12} color="heroMut" numberOfLines={2} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{w.chips}</Txt>
+          <Tap label={'Top set. ' + w.aria + '. Tap when done to start the rest timer'} onPress={v.tapWork} style={{ minHeight: 44, justifyContent: 'center' }} pressedStyle={{ opacity: 0.7 }}>
+            <Txt size={11.5} weight={600} color="accDeep">{w.cta}</Txt>
+          </Tap>
         </View>
         {w.hasLog ? <LoggedRow s={w} /> : null}
       </View>
@@ -245,13 +274,18 @@ function HeroCard({ v }: { v: View_ }) {
 export function MainScreen() {
   const v = useView();
   const { c, t } = useTheme();
+  const insets = useSafeAreaInsets();
   const cards = v.sets;
+  // VoiceOver does not read a newly shown warning box on iOS unless it is announced
+  React.useEffect(() => { if (v.warn) announce(v.warn); }, [v.warn]);
   return (
     <ScrollView
       ref={(r: ScrollViewT | null) => { tourFeed.ref = r; }}
       onContentSizeChange={(_w: number, h: number) => { tourFeed.height = h; }}
-      style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 220 }} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never"
+      // the rest panel (~230 pt incl. a wrapped plate row) plus the home indicator must never hide the last card
+      style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 260 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentInsetAdjustmentBehavior="never"
     >
+      <KeyboardDoneBar />
       {/* header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, paddingHorizontal: PAD, paddingBottom: 14 }}>
         <Tap label={'Exercise: ' + v.exercise + '. Open the exercise library'} onPress={v.goLibrary} pressedStyle={{ opacity: 0.7 }}>
@@ -269,7 +303,7 @@ export function MainScreen() {
         <View style={{ paddingHorizontal: PAD, paddingBottom: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 7 }}>
             <Txt size={11} weight={600} color="mut3" ls={0.33}>{v.sessionPosLabel}</Txt>
-            <Tap label="Edit session queue" onPress={v.goLibrary} minSize={40}><Txt size={11.5} weight={600} color="mut2">Edit ›</Txt></Tap>
+            <Tap label="Edit session queue" onPress={v.goLibrary} style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 8 }}><Txt size={11.5} weight={600} color="mut2">Edit ›</Txt></Tap>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingBottom: 2 }}>
             {v.sessionChips.map((ch) => (
@@ -310,7 +344,7 @@ export function MainScreen() {
 
       {/* bar + target */}
       <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: PAD, paddingBottom: 14 }}>
-        <Card style={{ width: 138 }} pad={[12, 13]}>
+        <Card style={{ flexBasis: 138, flexGrow: 0, flexShrink: 1, minWidth: 116 }} pad={[12, 13]}>
           <Txt size={11.5} weight={500} color="mut3">{v.barLabel}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 5 }}>
             <NumberField label={v.barLabel + ' weight'} value={v.barDraft} onChange={v.onBarInput} onCommit={v.commitBar} size={v.barFs} weight={700} flex={1} dashed="bd6" />
@@ -395,7 +429,7 @@ export function MainScreen() {
         <HeroCard v={v} />
         <Tap label={v.schemeLine + '. Change the set scheme'} onPress={v.openSchemeSheet} style={{ minHeight: 44, marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 4 }} pressedStyle={{ opacity: 0.8 }}>
           <Txt size={12.5} weight={500} color="mut3" numberOfLines={1} style={{ flexShrink: 1 }}>{v.schemeLine}</Txt>
-          <View style={{ height: 32, paddingHorizontal: 12, borderRadius: 99, backgroundColor: c('ctl2'), borderWidth: 1, borderColor: c('bd2'), justifyContent: 'center' }}>
+          <View style={{ minHeight: 32, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 99, backgroundColor: c('ctl2'), borderWidth: 1, borderColor: c('bd2'), justifyContent: 'center' }}>
             <Txt size={12} weight={600} color="tx4">Change ›</Txt>
           </View>
         </Tap>

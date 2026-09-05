@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { AccessibilityInfo, Pressable, Text, View, StyleSheet, findNodeHandle } from 'react-native';
 import type { PressableProps, StyleProp, TextProps, TextStyle, ViewProps, ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop, Pattern } from 'react-native-svg';
 import { useTheme, sysWeight, numStyle, TAP_MIN } from './theme';
@@ -15,6 +15,7 @@ export function Txt({ size = 13, weight = 400, color = 'tx', ls, lh, align, styl
   const { c } = useTheme();
   return (
     <Text
+      maxFontSizeMultiplier={MAX_FONT_SCALE}
       {...rest}
       style={[{ fontSize: size, fontWeight: sysWeight(weight), color: c(color), letterSpacing: ls, lineHeight: lh, textAlign: align }, style]}
     />
@@ -27,7 +28,27 @@ export interface NumProps extends TextProps {
 /** Archivo numerals with tabular figures — for weights and numbers only. */
 export function Num({ size = 16, weight = 700, color = 'tx', ls = 0, lh, align, style, ...rest }: NumProps) {
   const { c } = useTheme();
-  return <Text {...rest} style={[numStyle(size, weight, ls), { color: c(color), lineHeight: lh, textAlign: align }, style]} />;
+  return <Text maxFontSizeMultiplier={MAX_FONT_SCALE} {...rest} style={[numStyle(size, weight, ls), { color: c(color), lineHeight: lh, textAlign: align }, style]} />;
+}
+
+/** Text grows with the system size up to 2x (the WCAG 1.4.4 target); past that the layout, not the type, would give. */
+export const MAX_FONT_SCALE = 2;
+
+/**
+ * Move VoiceOver to the returned ref shortly after mount (sheets, modals, onboarding): RN hides the
+ * siblings of a modal view but never moves focus into it, so the user would otherwise be left on a
+ * control that is no longer reachable.
+ */
+export function useA11yFocus<T extends View>(): React.RefObject<T | null> {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const tag = ref.current ? findNodeHandle(ref.current) : null;
+      if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+    }, 80);
+    return () => clearTimeout(id);
+  }, []);
+  return ref;
 }
 
 // ---- pressable ------------------------------------------------------------
@@ -44,10 +65,13 @@ export interface TapProps extends Omit<PressableProps, 'style'> {
 }
 /** Every control: a real Pressable with a role, a name and a ≥44 pt target. */
 export function Tap({ label, style, pressedStyle, minSize = TAP_MIN, role = 'button', selected, children, hitSlop, ...rest }: TapProps) {
+  // a container that is deliberately not an accessibility element (its children are the controls)
+  // carries no label either, so nothing reads or matches it twice
+  const container = rest.accessible === false;
   return (
     <Pressable
-      accessibilityRole={role}
-      accessibilityLabel={label}
+      accessibilityRole={container ? undefined : role}
+      accessibilityLabel={container ? undefined : label}
       accessibilityState={selected === undefined ? undefined : { selected }}
       hitSlop={hitSlop ?? Math.max(0, (minSize - 34) / 2)}
       {...rest}

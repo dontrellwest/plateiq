@@ -7,10 +7,10 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.plateiq.app",
       "infoPlist": {
-        "UIViewControllerBasedStatusBarAppearance": true
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -27,12 +27,19 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-font"
-    ],
-    "splash": {
-      "backgroundColor": "#0b0c0e",
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain"
-    }
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0b0c0e",
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "imageWidth": 200,
+          "dark": {
+            "backgroundColor": "#0b0c0e"
+          }
+        }
+      ]
+    ]
   }
 }

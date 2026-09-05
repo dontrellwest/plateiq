@@ -13,8 +13,10 @@ type V = ReturnType<typeof useView>;
 export function Toggle({ on, label, onPress }: { on: boolean; label: string; onPress: () => void }) {
   const { c } = useTheme();
   return (
-    <Tap label={label} role="switch" accessibilityState={{ checked: on }} onPress={onPress} style={{ width: 46, height: 28, borderRadius: 99, backgroundColor: c(on ? 'acc' : 'ctl3'), padding: 3, alignItems: on ? 'flex-end' : 'flex-start' }} pressedStyle={{ opacity: 0.85 }}>
-      <View style={{ width: 22, height: 22, borderRadius: 99, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 1.5, shadowOffset: { width: 0, height: 1 } }} />
+    <Tap label={label} role="switch" accessibilityState={{ checked: on }} onPress={onPress} style={{ width: 46, minHeight: 44, justifyContent: 'center' }} pressedStyle={{ opacity: 0.85 }}>
+      <View style={{ width: 46, height: 28, borderRadius: 99, backgroundColor: c(on ? 'acc' : 'ctl3'), padding: 3, alignItems: on ? 'flex-end' : 'flex-start' }}>
+        <View style={{ width: 22, height: 22, borderRadius: 99, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 1.5, shadowOffset: { width: 0, height: 1 } }} />
+      </View>
     </Tap>
   );
 }
@@ -52,7 +54,7 @@ function Row({ title, sub, right, onPress, label, last, children }: { title: str
 function Chip({ text, on, bg, fg, onPress, label, px = 14 }: { text: string; on: boolean; bg: string; fg: string; onPress: () => void; label?: string; px?: number }) {
   const { c } = useTheme();
   return (
-    <Tap label={label || text} role="radio" selected={on} onPress={onPress} minSize={40} style={{ paddingVertical: 7, paddingHorizontal: px, borderRadius: 10, backgroundColor: c(bg) }}>
+    <Tap label={label || text} role="radio" selected={on} onPress={onPress} hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }} style={{ paddingVertical: 7, paddingHorizontal: px, borderRadius: 10, backgroundColor: c(bg) }}>
       <Txt size={12.5} weight={700} color={fg}>{text}</Txt>
     </Tap>
   );

@@ -28,7 +28,9 @@ npm test
 ```
 
 Reduced harness (20,000 solver scenarios, 10,000 UI actions), a 30,000-scenario differential
-against the prototype's original script, and the UI suites. About a minute.
+against the prototype's original script, the UI suites, the hardening regressions
+(`__tests__/hardening.test.ts`) and a randomised property suite (`__tests__/invariants.test.ts`,
+fresh seed every run — `PLATEIQ_SEED=<n>` reproduces one). About a minute.
 
 ```bash
 npm run test:full
@@ -65,3 +67,10 @@ the console.
 - Rest timer follows a wall-clock end time (survives backgrounding); haptic at zero; VoiceOver
   announces at start, every 30 s, at 10 s and at zero.
 - Done-card tones and a few hard-coded dark colours in the prototype became theme tokens.
+- Hardening pass (2026-09-05, see `docs/HARDENING.md`): comma decimals parse; the landmine reverse
+  reader converts loaded to effective weight; steppers floor one plate step above the implement in
+  the current unit and never raise a typed value; logging the last set from its card finishes the
+  exercise; undo restores the paused flag; a rest in progress survives a relaunch (wall-clock end
+  time persisted, dropped after 30 min); the tour runs on the default ladder in the user's units and
+  restores warm-ups/scheme/drafts; muted text tokens meet 4.5:1; cards are VoiceOver containers with
+  reachable controls; the app is iPhone-only (`supportsTablet: false`).

@@ -4,7 +4,7 @@ import React from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Num, Tap, Txt } from '../primitives';
+import { Num, Tap, Txt, useA11yFocus } from '../primitives';
 import { MOTION, useTheme } from '../theme';
 import { useSlideUp } from '../motion';
 
@@ -31,10 +31,13 @@ export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxH
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(MOTION.sheet, reduceMotion);
+  const titleRef = useA11yFocus<View>();
   const body = (
     <>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <Num size={21} weight={700} ls={-0.3}>{title}</Num>
+        <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={a11yLabel + '. ' + title} style={{ flexShrink: 1 }}>
+          <Num size={21} weight={700} ls={-0.3}>{title}</Num>
+        </View>
         <Tap label="Close" onPress={onClose} style={{ width: 40, height: 40, borderRadius: 99, backgroundColor: c('ctl2'), alignItems: 'center', justifyContent: 'center' }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
           <Txt size={15} color="mut">✕</Txt>
         </Tap>
