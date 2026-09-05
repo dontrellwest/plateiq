@@ -31,7 +31,7 @@ function Row({ title, sub, right, onPress, label, last, children }: { title: str
   const body = (
     <>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <View style={{ flexShrink: 1 }}>
+        <View style={{ flex: 1 }}>
           <Txt size={14} weight={600} color="tx2">{title}</Txt>
           {sub ? <Txt size={11.5} color="mut3" style={{ marginTop: 2 }}>{sub}</Txt> : null}
           {children}

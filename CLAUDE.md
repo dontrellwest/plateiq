@@ -42,6 +42,10 @@ npx expo start --web  # browser preview; window.plateiq = { useStore, logic } in
 
 ## Known leftovers
 - App icon and splash are Expo defaults (`assets/`).
-- Never run on a real iOS device yet — see the verification list in `docs/MAC-HANDOFF.md`.
+- Verified on the iOS 26.5 Simulator (iPhone 17 Pro, Expo Go) on 2026-09-05: tour, onboarding,
+  timer, completion, all sheets and screens, light/dark, reduced motion, Dynamic Type +2,
+  backgrounding during a rest. Not yet on a real device: VoiceOver, haptics, touch targets.
+- Reanimated gotcha: never put a host element ref on an object that a worklet closure captures
+  (`tourUI` holds shared values only; the feed ScrollView ref lives in `tourFeed`).
 - The well vignette reads a touch stronger than the prototype's in the bottom-left corner.
 - Web only: nested `<button>` warnings from Pressables inside Pressables (fine on iOS).

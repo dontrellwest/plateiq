@@ -2,6 +2,10 @@
 // timeline and calls this host to: show the fingertip over a registered anchor, scroll the feed to
 // a fraction of its height, and move the progress bar. Progress and the fingertip are Reanimated
 // shared values updated imperatively, so the solver only re-runs at keyframes (state changes).
+//
+// `tourUI` must hold only shared values: the overlay's worklets capture the whole object, and
+// Worklets copies every field into the UI runtime — a host element (the feed's ScrollView ref)
+// cannot be copied and crashes the app on iOS. The feed ref therefore lives in `tourFeed`.
 
 import { makeMutable } from 'react-native-reanimated';
 import type { ScrollView } from 'react-native';
@@ -14,8 +18,10 @@ export const tourUI = {
   dotY: makeMutable(-100),
   /** increments on every press so the fingertip animation restarts */
   pressKey: makeMutable(0),
-  feed: { ref: null as ScrollView | null, height: 0 },
 };
+
+/** Plain (non-worklet) side: the feed ScrollView and its content height, for `scrollTo`. */
+export const tourFeed = { ref: null as ScrollView | null, height: 0 };
 
 export const tourHost: TourHost = {
   press(anchor) {
@@ -29,8 +35,8 @@ export const tourHost: TourHost = {
     return true;
   },
   scrollTo(fraction) {
-    const sv = tourUI.feed.ref;
-    if (sv && sv.scrollTo) sv.scrollTo({ y: tourUI.feed.height * fraction, animated: true });
+    const sv = tourFeed.ref;
+    if (sv && sv.scrollTo) sv.scrollTo({ y: tourFeed.height * fraction, animated: true });
   },
   setProgress(fraction) {
     tourUI.progress.value = Math.max(0, Math.min(1, fraction));

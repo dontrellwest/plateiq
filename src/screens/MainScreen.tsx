@@ -2,7 +2,7 @@
 // comes from the ported view model (useView), every control is a Tap with a name.
 
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import type { ScrollView as ScrollViewT } from 'react-native';
 import { PulseDot } from '../ui/PulseDot';
 import { useView } from '../store/useStore';
@@ -10,7 +10,7 @@ import { Badge, Card, GradientBox, Hairline, IconButton, Num, Tap, Txt, anchorPr
 import { ARCHIVO, SCREEN_PAD, useTheme } from '../ui/theme';
 import { BarWell, LandmineWell } from '../ui/plates/Wells';
 import type { Shaft } from '../ui/plates/Wells';
-import { tourUI } from '../ui/tour/tourUI';
+import { tourFeed } from '../ui/tour/tourUI';
 
 type View_ = ReturnType<typeof useView>;
 type SetVM = View_['sets'][number];
@@ -66,6 +66,9 @@ function AddSetButton({ onPress }: { onPress: () => void }) {
 function NumberField({ value, onChange, onCommit, size, weight, width, ls, label, dashed, align, flex }: { value: string; onChange: (v: string) => void; onCommit: () => void; size: number; weight: 700 | 800; width?: number; ls?: number; label: string; dashed: string; align?: 'center' | 'left'; flex?: number }) {
   const { c } = useTheme();
   const [focus, setFocus] = React.useState(false);
+  // the logic sizes the field from the unscaled font; follow the user's text size (Dynamic Type)
+  const { fontScale } = useWindowDimensions();
+  const scaledWidth = width === undefined ? undefined : Math.round(width * fontScale);
   return (
     <TextInput
       accessibilityLabel={label}
@@ -80,7 +83,7 @@ function NumberField({ value, onChange, onCommit, size, weight, width, ls, label
       style={[
         {
           fontFamily: ARCHIVO[weight], fontSize: size, color: c('tx'), letterSpacing: ls, padding: 0, margin: 0,
-          width, flex, minWidth: 0, textAlign: align, fontVariant: ['tabular-nums'],
+          width: scaledWidth, flex, minWidth: 0, textAlign: align, fontVariant: ['tabular-nums'],
           borderBottomWidth: 1, borderStyle: focus ? 'solid' : 'dashed', borderBottomColor: focus ? c('acc') : c(dashed),
           lineHeight: Math.round(size * 1.15),
         },
@@ -245,8 +248,8 @@ export function MainScreen() {
   const cards = v.sets;
   return (
     <ScrollView
-      ref={(r: ScrollViewT | null) => { tourUI.feed.ref = r; }}
-      onContentSizeChange={(_w: number, h: number) => { tourUI.feed.height = h; }}
+      ref={(r: ScrollViewT | null) => { tourFeed.ref = r; }}
+      onContentSizeChange={(_w: number, h: number) => { tourFeed.height = h; }}
       style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 220 }} keyboardShouldPersistTaps="handled" contentInsetAdjustmentBehavior="never"
     >
       {/* header */}
