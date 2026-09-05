@@ -19,6 +19,14 @@ needed to install a standalone build on a device or ship to TestFlight/App Store
 ## 2. First run
 
 ```bash
+git clone https://github.com/dontrellwest/plateiq.git
+```
+
+The design handoff (`design_handoff_plateiq/`, needed only by the differential test and the
+side-by-side comparison) is not in the repo; copy it next to the clone from OneDrive if you want
+those. Without it, the differential test simply skips.
+
+```bash
 cd plateiq
 npm install
 npm test            # reduced harness + differential + UI suites (~1 min)
