@@ -22,9 +22,26 @@ needed to install a standalone build on a device or ship to TestFlight/App Store
 git clone https://github.com/dontrellwest/plateiq.git
 ```
 
-The design handoff (`design_handoff_plateiq/`, needed only by the differential test and the
-side-by-side comparison) is not in the repo; copy it next to the clone from OneDrive if you want
-those. Without it, the differential test simply skips.
+The design handoff is not in the repo. It is one file: the Claude Design canvas the app was built
+from, exported as `PlateIQ Redesign.dc.html` (an HTML file containing a
+`<script type="text/x-dc" data-dc-script>` block with the original prototype's logic). It is only
+needed by the differential test and the side-by-side comparison.
+
+Put it either next to the clone:
+
+```
+~/design_handoff_plateiq/PlateIQ Redesign.dc.html
+```
+
+or anywhere else and point the tests at it:
+
+```bash
+PLATEIQ_HANDOFF="/path/to/PlateIQ Redesign.dc.html" PLATEIQ_REQUIRE_DIFF=1 npm test
+```
+
+Any `*.dc.html` in that folder is picked up, so an export under a different name still works.
+Without it the differential test skips with a loud warning; `PLATEIQ_REQUIRE_DIFF=1` turns the
+skip into a failure, which is how a release check should run it.
 
 ```bash
 cd plateiq

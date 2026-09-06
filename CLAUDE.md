@@ -27,8 +27,9 @@ polish. See `README.md` for the layout and `docs/MAC-HANDOFF.md` for running on 
   runs `__tests__/hardening.test.ts` (one test per fixed defect) and `__tests__/invariants.test.ts`
   (randomised; the seed is printed — reproduce with `PLATEIQ_SEED`). The differential test compares
   `renderVals().warn` among other fields, so never change the warn copy or `missSet` logic. It is
-  SKIPPED on any machine without `../design_handoff_plateiq` (it says so loudly); before shipping a
-  maths change, run it with the handoff folder present and `PLATEIQ_REQUIRE_DIFF=1`.
+  SKIPPED on any machine without the Claude Design export (it says so loudly). The export is a
+  `.dc.html` canvas file; put it in `../design_handoff_plateiq/` or set `PLATEIQ_HANDOFF` to it, and
+  run with `PLATEIQ_REQUIRE_DIFF=1` before shipping a maths change.
 - Containers that hold controls (set cards, hero card, library rows, the rest-timer header) are
   `Tap accessible={false}`; VoiceOver would otherwise swallow the controls inside them.
 

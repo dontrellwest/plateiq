@@ -7,7 +7,23 @@ import * as path from 'path';
 import { PlateIQLogic, MemoryHost } from '../src/logic/PlateIQLogic';
 import type { AppState } from '../src/logic/types';
 
-const HANDOFF = path.resolve(__dirname, '..', '..', 'design_handoff_plateiq', 'PlateIQ Redesign.dc.html');
+/**
+ * The prototype is a Claude Design canvas export (`.dc.html`, carrying a `data-dc-script` block).
+ * Point PLATEIQ_HANDOFF at the file or its folder, or drop it in `design_handoff_plateiq/` next to
+ * the repo under any name — the first `.dc.html` in that folder is used.
+ */
+const HANDOFF_DIR = process.env.PLATEIQ_HANDOFF || path.resolve(__dirname, '..', '..', 'design_handoff_plateiq');
+function findHandoff(): string | null {
+  try {
+    if (fs.existsSync(HANDOFF_DIR) && fs.statSync(HANDOFF_DIR).isFile()) return HANDOFF_DIR;
+    if (!fs.existsSync(HANDOFF_DIR)) return null;
+    const named = path.join(HANDOFF_DIR, 'PlateIQ Redesign.dc.html');
+    if (fs.existsSync(named)) return named;
+    const any = fs.readdirSync(HANDOFF_DIR).filter((f) => f.toLowerCase().endsWith('.dc.html')).sort();
+    return any.length ? path.join(HANDOFF_DIR, any[0]) : null;
+  } catch { return null; }
+}
+const HANDOFF = findHandoff();
 const N = Number(process.env.PLATEIQ_DIFF || (process.env.PLATEIQ_FULL === '1' ? 200000 : 30000));
 
 function mulberry32(a: number) {
@@ -30,10 +46,14 @@ type Proto = {
 };
 
 function loadPrototype(): (new (props: unknown) => Proto) | null {
-  if (!fs.existsSync(HANDOFF)) return null;
+  if (!HANDOFF) return null;
   const txt = fs.readFileSync(HANDOFF, 'utf8');
   const m = txt.match(/<script type="text\/x-dc" data-dc-script[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) return null;
+  if (!m) {
+    // eslint-disable-next-line no-console
+    console.warn('\n*** differential SKIPPED: ' + HANDOFF + ' has no <script type="text/x-dc" data-dc-script> block ***\n');
+    return null;
+  }
   const body = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
   class DCLogic {
     props: unknown; state: Record<string, unknown> = {};
@@ -114,7 +134,7 @@ const Proto = loadPrototype();
 // The port is only locked to the prototype while this actually runs. A silent skip in the jest
 // summary is easy to miss, so say so loudly — and fail outright when the full suite is asked for.
 if (!Proto) {
-  const msg = 'differential SKIPPED: prototype not found at ' + HANDOFF;
+  const msg = 'differential SKIPPED: no Claude Design export (*.dc.html) found at ' + HANDOFF_DIR;
   if (process.env.PLATEIQ_REQUIRE_DIFF === '1') throw new Error(msg + ' (PLATEIQ_REQUIRE_DIFF=1 was set)');
   // eslint-disable-next-line no-console
   console.warn('\n*** ' + msg + ' — the locked-solver check did NOT run ***\n');
