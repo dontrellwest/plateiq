@@ -3,10 +3,12 @@
 // Watch the tour, training history, run setup again.
 
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { Linking, ScrollView, View } from 'react-native';
+import Constants from 'expo-constants';
 import type { useView } from '../store/useStore';
 import { Card, Hairline, IconButton, Num, Tap, Txt } from '../ui/primitives';
 import { SCREEN_PAD, useTheme } from '../ui/theme';
+import { PRIVACY_URL, SUPPORT_URL } from '../logic/constants';
 
 type V = ReturnType<typeof useView>;
 
@@ -152,15 +154,29 @@ export function SettingsScreen({ v }: { v: V }) {
       <Group>
         <Row title="Auto-start rest timer" sub="Starts the moment you tap a set" right={<Toggle on={v.autoRest} label="Auto-start rest timer" onPress={v.toggleAuto} />} />
         <Row title="Chime when rest ends" sub="Plays over your music, and even with the ring switch on silent" right={<Toggle on={v.restSound} label="Chime when rest ends" onPress={v.toggleRestSound} />} />
-        <Row title="Alert on the lock screen" sub="Reaches you when the app is closed — asks permission the first time" right={<Toggle on={v.restNotify} label="Alert on the lock screen" onPress={v.toggleRestNotify} />} />
+        <Row title="Alert on the lock screen" sub="Reaches you when the app is closed — asks permission the first time" right={<Toggle on={v.restNotify} label="Alert on the lock screen" onPress={v.toggleRestNotify} />}>
+            {v.notifyBlocked ? (
+              <Tap label="Open PlateIQ in the iPhone Settings app" onPress={() => { void Linking.openSettings(); }} style={{ marginTop: 9, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: c('dan2A14'), borderWidth: 1, borderColor: c('dan2A40') }}>
+                <Txt size={11.5} weight={600} color="dan3">{v.notifyBlockedLabel}</Txt>
+                <Txt size={11.5} weight={700} color="accDeep" style={{ marginTop: 5 }}>Open iPhone Settings ›</Txt>
+              </Tap>
+            ) : null}
+          </Row>
         <Row title="Watch the tour" sub="The guided walkthrough, again" onPress={v.tourFromSettings} label="Watch the tour" right={<Txt size={13} color="mut4">Play ›</Txt>} />
         <Row title="Training history" sub={v.sessionsLabel} onPress={v.goHistory} label="Training history" last right={<Txt size={13} color="mut4">Open ›</Txt>} />
+      </Group>
+
+      <SectionTitle text="Your data" />
+      <Group>
+        <Row title={v.dataTitle} sub={v.dataBody} />
+        <Row title="Privacy policy" sub="PlateIQ collects nothing and has no accounts" onPress={() => { void Linking.openURL(PRIVACY_URL); }} label="Open the privacy policy in your browser" right={<Txt size={13} color="mut4">Open ›</Txt>} />
+        <Row title="Support" sub="How to get help" onPress={() => { void Linking.openURL(SUPPORT_URL); }} label="Open the support page in your browser" last right={<Txt size={13} color="mut4">Open ›</Txt>} />
       </Group>
 
       <Tap label="Run first-time setup again" onPress={v.startOnboard} style={{ paddingVertical: 14, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: c('bd3'), alignItems: 'center' }} pressedStyle={{ borderColor: c('accA40') }}>
         <Txt size={13} weight={600} color="mut2">Run first-time setup again</Txt>
       </Tap>
-      <Txt size={11} color="mut5" align="center" style={{ marginTop: 16 }}>PlateIQ 1.4 · built for people who hate arithmetic mid-set</Txt>
+      <Txt size={11} color="mut5" align="center" style={{ marginTop: 16 }}>{'PlateIQ ' + (Constants.expoConfig?.version || '') + ' · built for people who hate arithmetic mid-set'}</Txt>
     </ScrollView>
   );
 }

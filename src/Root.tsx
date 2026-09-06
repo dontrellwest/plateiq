@@ -7,6 +7,7 @@ import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logic, useView } from './store/useStore';
+import { Txt } from './ui/primitives';
 import { useTheme } from './ui/theme';
 import { MainScreen } from './screens/MainScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -31,12 +32,18 @@ export function Root() {
   return (
     <View style={{ flex: 1, backgroundColor: t.bg, paddingTop: insets.top }}>
       <StatusBar style={dark ? 'light' : 'dark'} />
+      {/* Saving is failing. Every screen has to say so — the console reaches nobody on a phone. */}
+      {v.saveFailed ? (
+        <View accessibilityRole="alert" style={{ marginHorizontal: 12, marginBottom: 6, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 12, backgroundColor: t.dan2A14, borderWidth: 1, borderColor: t.dan2A40 }}>
+          <Txt size={12} weight={600} color="dan3">{v.saveFailedLabel}</Txt>
+        </View>
+      ) : null}
       {v.isMain ? <MainScreen /> : null}
       {v.isHistory ? <HistoryScreen v={v} /> : null}
       {v.isLibrary ? <LibraryScreen v={v} /> : null}
       {v.isSettings ? <SettingsScreen v={v} /> : null}
 
-      {v.timer.show ? <TimerPanel timer={v.timer} onToggleExpand={v.toggleExpand} /> : null}
+      {v.timer.show ? <TimerPanel timer={v.timer} onTogglePause={v.togglePause} /> : null}
       {v.undoShow ? <UndoToast label={v.undoLabel} aboveTimer={v.timer.show} onUndo={v.undoTap} onDismiss={v.undoDismiss} /> : null}
 
       {v.sheet ? <Scrim onClose={v.closeSheet} /> : null}

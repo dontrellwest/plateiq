@@ -36,7 +36,7 @@ function Ring({ dash, mmss }: { dash: number; mmss: string }) {
         <ACircle cx={26} cy={26} r={23} fill="none" stroke={t.acc} strokeWidth={4} strokeLinecap="round" strokeDasharray={String(RING_LEN)} animatedProps={props} />
       </Svg>
       <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <Num size={14} weight={700} color="tx">{mmss}</Num>
+        <Num size={14} weight={700} color="tx" maxFontSizeMultiplier={1.3}>{mmss}</Num>
       </View>
     </View>
   );
@@ -61,7 +61,7 @@ function RestButton({ label, text, onPress, flex = 1, fg = 'tx4' }: { label: str
   );
 }
 
-export function TimerPanel({ timer, onToggleExpand }: { timer: Timer; onToggleExpand: () => void }) {
+export function TimerPanel({ timer, onTogglePause }: { timer: Timer; onTogglePause: () => void }) {
   const { c, t, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(MOTION.sheet, reduceMotion);
@@ -96,8 +96,8 @@ export function TimerPanel({ timer, onToggleExpand }: { timer: Timer; onToggleEx
       ]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 13 }}>
-        {/* the ring + labels toggle the panel; the CTA is a sibling so VoiceOver can reach it */}
-        <Tap label={timer.aria || 'Rest timer'} onPress={onToggleExpand} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13 }} pressedStyle={{}}>
+        {/* the ring + labels pause and resume; the CTA is a sibling so VoiceOver can reach it */}
+        <Tap label={timer.aria || 'Rest timer'} onPress={timer.togglePause || onTogglePause} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 13 }} pressedStyle={{}}>
           <Ring dash={dash} mmss={timer.mmss || '0:00'} />
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
@@ -129,7 +129,7 @@ export function TimerPanel({ timer, onToggleExpand }: { timer: Timer; onToggleEx
         ) : null}
         {timer.noChange ? <Txt size={12.5} color="mut2">No plate change for the next set</Txt> : null}
         {timer.lastSet ? <Txt size={12.5} color="mut2" style={{ flexShrink: 1 }}>Strip the bar when you’re ready — nothing else to load.</Txt> : null}
-        {timer.hasChips ? <Txt size={12} color="mut3" style={{ marginLeft: 'auto' }}>each side</Txt> : null}
+        {timer.hasChips ? <Txt size={12} color="mut3" style={{ marginLeft: 'auto' }}>{timer.perSideLabel || 'each side'}</Txt> : null}
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>

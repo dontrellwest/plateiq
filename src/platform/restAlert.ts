@@ -14,6 +14,8 @@ export function fire(withSound: boolean) {
   haptics.timerDone();
   if (withSound) playRestSound();
   void disarm(); // the user is looking at the phone; no lock-screen banner on top of that
+  // the cancel above races the delivery by up to a second — sweep anything that got through
+  void notify.dismissDelivered();
 }
 
 /**
@@ -48,6 +50,7 @@ export function installHandler() {
 export async function bootCleanup() {
   armedFor = null;
   await notify.cancelAll();
+  await notify.dismissDelivered();
 }
 
 export function teardown() {

@@ -186,7 +186,7 @@ function SetCard({ s, v }: { s: SetVM; v: View_ }) {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 5 }}>
         <Txt size={12} color="mut3" numberOfLines={2} style={{ flexShrink: 1, fontVariant: ['tabular-nums'] }}>{s.chips}</Txt>
-        <Tap label={s.aria} onPress={s.tap} style={{ minHeight: 44, justifyContent: 'center' }} pressedStyle={{ opacity: 0.7 }}>
+        <Tap label={s.ctaAria || s.aria} onPress={s.tap} style={{ minHeight: 44, justifyContent: 'center' }} pressedStyle={{ opacity: 0.7 }}>
           <Txt size={11.5} weight={600} color={s.ctaFg}>{s.cta}</Txt>
         </Tap>
       </View>

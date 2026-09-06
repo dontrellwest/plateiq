@@ -287,3 +287,8 @@ export const ACCENTS: Accent[] = [
 export const round5 = (n: number) => Math.round(n / 5) * 5;
 export const round2_5 = (n: number) => Math.round(n / 2.5) * 2.5;
 export const mmss = (s: number) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+// Published from the repo's docs/ folder via GitHub Pages. Apple requires a privacy policy link
+// both in App Store Connect and reachable from inside the app (guideline 5.1.1(i)).
+export const PRIVACY_URL = 'https://dontrellwest.github.io/plateiq/privacy.html';
+export const SUPPORT_URL = 'https://dontrellwest.github.io/plateiq/support.html';

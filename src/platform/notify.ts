@@ -10,6 +10,7 @@ type NotifModule = {
   scheduleNotificationAsync?: (req: unknown) => Promise<string>;
   cancelScheduledNotificationAsync?: (id: string) => Promise<void>;
   cancelAllScheduledNotificationsAsync?: () => Promise<void>;
+  dismissAllNotificationsAsync?: () => Promise<void>;
   SchedulableTriggerInputTypes?: Record<string, string>;
 };
 
@@ -30,7 +31,7 @@ export function installHandler(isForeground: () => boolean) {
   mod?.setNotificationHandler?.({
     handleNotification: async () => ({
       shouldShowBanner: !isForeground(),
-      shouldShowList: true,
+      shouldShowList: !isForeground(),
       shouldPlaySound: !isForeground(),
       shouldSetBadge: false,
     }),
@@ -38,21 +39,37 @@ export function installHandler(isForeground: () => boolean) {
 }
 
 /**
- * Asked once, at the moment the user turns the Settings row on, never on launch. An app that asks
- * before the user has done anything gets denied, and iOS only lets you ask again while
- * `canAskAgain` is true.
+ * 'blocked' is the one that matters: iOS only shows the permission sheet while `canAskAgain` is
+ * true, so once the user has tapped "Don't Allow" the switch can never turn itself on again. The
+ * caller has to say so and point at iOS Settings, or the row reads as a broken button forever.
  */
-export async function ensurePermission(): Promise<boolean> {
-  if (!mod?.getPermissionsAsync || !mod.requestPermissionsAsync) return false;
+export type PermResult = 'granted' | 'blocked' | 'denied' | 'unavailable';
+
+/** What iOS thinks right now. Never prompts — safe to call on launch and before a rest. */
+export async function currentPermission(): Promise<PermResult> {
+  if (!mod?.getPermissionsAsync) return 'unavailable';
   try {
     const cur = await mod.getPermissionsAsync();
-    if (cur.granted) return true;
-    if (!cur.canAskAgain) return false; // denied before: iOS will not show the sheet again
+    if (cur.granted) return 'granted';
+    return cur.canAskAgain ? 'denied' : 'blocked';
+  } catch { return 'unavailable'; }
+}
+
+/**
+ * Asked once, at the moment the user turns the Settings row on, never on launch. An app that asks
+ * before the user has done anything gets denied.
+ */
+export async function ensurePermission(): Promise<PermResult> {
+  if (!mod?.getPermissionsAsync || !mod.requestPermissionsAsync) return 'unavailable';
+  try {
+    const cur = await mod.getPermissionsAsync();
+    if (cur.granted) return 'granted';
+    if (!cur.canAskAgain) return 'blocked'; // iOS will not show the sheet again
     const next = await mod.requestPermissionsAsync({
       ios: { allowAlert: true, allowSound: true, allowBadge: false },
     });
-    return !!next.granted;
-  } catch { return false; }
+    return next.granted ? 'granted' : 'blocked';
+  } catch { return 'unavailable'; }
 }
 
 export async function scheduleRestEnd(endsAt: number, now: number) {
@@ -78,6 +95,15 @@ export async function scheduleRestEnd(endsAt: number, now: number) {
 
 export async function cancelRestEnd() {
   try { await mod?.cancelScheduledNotificationAsync?.(REST_NOTIFICATION_ID); } catch { /* not scheduled */ }
+}
+
+/**
+ * Clears already-DELIVERED banners. cancelAll only drops ones that have not fired yet, so without
+ * this a long session leaves a stack of identical "Rest over" rows to clear by hand — the tick that
+ * cancels a pending alert lands anywhere in a one-second window around the true end.
+ */
+export async function dismissDelivered() {
+  try { await mod?.dismissAllNotificationsAsync?.(); } catch { /* nothing delivered */ }
 }
 
 /** Launch cleanup: iOS keeps scheduled notifications across a force-quit. */

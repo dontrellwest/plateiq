@@ -45,7 +45,7 @@ export function RackRows({ rows, unit, gap = 8, editable = true, bg = 'card' }: 
             {editable ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <QtyButton glyph="–" label={'One fewer ' + r.label + ' ' + unit + ' plate'} onPress={r.dec} />
-                <Num size={16} weight={700} align="center" style={{ width: 28 }} accessibilityLabel={r.qty + ' owned, ' + r.note}>{String(r.qty)}</Num>
+                <Num size={16} weight={700} align="center" style={{ minWidth: 28 }} accessibilityLabel={r.qty + ' owned, ' + r.note}>{String(r.qty)}</Num>
                 <QtyButton glyph="+" label={'One more ' + r.label + ' ' + unit + ' plate'} onPress={r.inc} />
               </View>
             ) : (

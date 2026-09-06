@@ -51,7 +51,6 @@ export interface AppState {
   activeIdx: number | null;
   doneIdx: number[];
   remaining: number;
-  expanded: boolean;
   sheet: Sheet;
   homeGym: boolean;
   allDone: boolean;
@@ -77,6 +76,10 @@ export interface AppState {
   restSound: boolean;
   /** Schedule a lock-screen alert for the end of a rest. Off until asked: turning it on prompts. */
   restNotify: boolean;
+  /** iOS has notifications switched off for PlateIQ and will not show the prompt again. */
+  notifyBlocked: boolean;
+  /** A write to disk failed. Nothing logged since is being saved, and the user has to be told. */
+  saveFailed: boolean;
   // guided tour: 'auto' = undecided until mount, 'play' = running, false = off
   tour: TourState;
   tourPaused: boolean;

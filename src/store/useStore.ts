@@ -18,13 +18,13 @@ import * as notify from '../platform/notify';
 export const PERSISTED_KEYS: Array<keyof AppState> = [
   // settings
   'units', 'roundTo', 'theme', 'accent', 'homeGym', 'qty', 'comp', 'collarId', 'minChanges', 'autoRest',
-  'anchorType', 'barProfile', 'bar', 'barDraft', 'dbHandle', 'dbPair', 'mode',
+  'anchorType', 'barProfile', 'bar', 'dbHandle', 'dbPair', 'mode',
   'restSound', 'restNotify',
   // workout plan + progress
   'working', 'dbTotal', 'lmTarget', 'warmups', 'scheme', 'doneIdx', 'log', 'allDone', 'rmW', 'rmR', 'rmRpe',
   // the rest in progress: iOS may terminate a suspended app between sets; the wall-clock end time
   // lets the countdown pick up where it was (`remaining` is recomputed from it on relaunch)
-  'activeIdx', 'restTotal', 'restEndsAt', 'paused', 'expanded',
+  'activeIdx', 'restTotal', 'restEndsAt', 'paused',
   // session queue
   'session', 'sessionDone', 'exercise',
   // history
@@ -129,8 +129,13 @@ const storage: PersistStorage<AppState> = {
     lastWritten = { ...next };
     try {
       await AsyncStorage.setItem(name, JSON.stringify(value));
+      // a write that recovers clears the warning; guarded so this cannot loop through persist
+      if (useStore.getState().saveFailed) useStore.setState({ saveFailed: false });
     } catch (e) {
       lastWritten = null; // retry on the next change
+      // A console warning reaches nobody on a real phone. Out of disk space, the user would
+      // otherwise log a whole workout that is not being written anywhere and never be told.
+      if (!useStore.getState().saveFailed) useStore.setState({ saveFailed: true });
       console.warn('PlateIQ: could not save', e);
     }
   },
@@ -292,9 +297,10 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     if (settling) return;
     if (s.restNotify && !prev.restNotify) {
       // the switch just went on: ask once, here, never on launch
-      void notify.ensurePermission().then((ok) => {
-        if (!ok) useStore.setState({ restNotify: false }); // the switch flips itself back
-        else syncRestAlert();
+      void notify.ensurePermission().then((r) => {
+        if (r === 'granted') { useStore.setState({ notifyBlocked: false }); syncRestAlert(); return; }
+        // the switch flips itself back — and now says why, when iOS will not ask again
+        useStore.setState({ restNotify: false, notifyBlocked: r === 'blocked' });
       });
       return;
     }
@@ -303,7 +309,20 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     if (changed) syncRestAlert();
   });
 
-  const appSub = RNAppState.addEventListener('change', (st) => { if (st === 'active') logic.tick(now()); });
+  // Permission can be revoked in iOS Settings between launches. Without this the switch keeps
+  // reading ON, keeps scheduling an alert that will never appear, and says nothing.
+  const recheckNotify = () => {
+    if (!useStore.getState().restNotify) return;
+    void notify.currentPermission().then((r) => {
+      if (r === 'granted' || r === 'unavailable') return;
+      useStore.setState({ restNotify: false, notifyBlocked: r === 'blocked' });
+    });
+  };
+  recheckNotify();
+
+  const appSub = RNAppState.addEventListener('change', (st) => {
+    if (st === 'active') { logic.tick(now()); recheckNotify(); }
+  });
 
   const applyScheme = () => useStore.setState({ systemDark: Appearance.getColorScheme() === 'dark' });
   applyScheme();

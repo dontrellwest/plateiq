@@ -41,7 +41,6 @@ export const INITIAL_STATE: AppState = {
   activeIdx: null,
   doneIdx: [],
   remaining: 0,
-  expanded: true,
   sheet: false,
   homeGym: false,
   allDone: false,
@@ -65,6 +64,8 @@ export const INITIAL_STATE: AppState = {
   autoRest: true,
   restSound: true,
   restNotify: false,
+  notifyBlocked: false,
+  saveFailed: false,
   // guided tour: 'auto' = undecided until mount, 'play' = running, false = off
   tour: 'auto',
   tourPaused: false,
@@ -610,7 +611,7 @@ export class PlateIQLogic {
       const rest = flat[i] ? flat[i].rest : 180;
       // starting a rest supersedes the last toast — they share the same bottom slot
       // going back into a set reopens the session — the completion card must not linger behind it
-      return { activeIdx: i, remaining: rest, restTotal: rest, expanded: true, paused: !s.autoRest, allDone: false, undo: null };
+      return { activeIdx: i, remaining: rest, restTotal: rest, paused: !s.autoRest, allDone: false, undo: null };
     });
   }
   // ---- guided tour: the app drives itself through one demo set ----
@@ -678,7 +679,7 @@ export class PlateIQLogic {
       mode: S.mode, working: S.working, activeIdx: S.activeIdx, doneIdx: S.doneIdx.slice(),
       allDone: S.allDone, log: { ...S.log }, remaining: S.remaining, restTotal: S.restTotal,
       screen: S.screen, sheet: S.sheet, logIdx: S.logIdx, undo: S.undo, undoAt: S.undoAt,
-      paused: S.paused, expanded: S.expanded,
+      paused: S.paused,
       // the demo runs on the default ladder in barbell mode; everything it overrides comes back
       barDraft: S.barDraft, workDraft: S.workDraft, warmups: S.warmups.map((w) => ({ ...w })), scheme: S.scheme,
     };
@@ -693,7 +694,7 @@ export class PlateIQLogic {
       tourCap: '', tourCard: this._tourFrames[0].card || null,
       screen: 'main', mode: 'barbell', working: S.units === 'kg' ? 100 : 225, sheet: false, logIdx: null,
       barDraft: String(S.bar), workDraft: null, warmups: INITIAL_STATE.warmups.map((w) => ({ ...w })), scheme: 'single',
-      undo: null, paused: false, expanded: true, ...this.progressReset(),
+      undo: null, paused: false, ...this.progressReset(),
       tourSnap: { ...this._tourSnap, tourFrom: from } as StatePatch,
     });
     caf(this._tourRaf);
@@ -1137,6 +1138,12 @@ export class PlateIQLogic {
         badgeFg: bad ? 'warnTx' : active ? 'accDeep' : 'mut2',
         ctaFg: active ? 'accDeep' : 'mut4',
         cta: active ? 'Resting — tap to log next' : done ? '✓ logged' : 'Tap when done ›',
+        // Names the action, and opens with the words on screen so Voice Control can match them.
+        ctaAria: done
+          ? 'Logged. ' + s.label + '. Double tap to edit what you actually did.'
+          : active
+            ? 'Tap to log next. Resting. Double tap to log ' + s.label + ' and move on.'
+            : 'Tap when done. Log ' + s.label + ' at ' + s.main + ' ' + st.units + ' and start the rest timer.',
         tap: () => this.tapSet(i),
         // logged actual vs planned — only surfaced once the set is behind you
         hasLog: !!lg && done,
@@ -1187,7 +1194,8 @@ export class PlateIQLogic {
     type Timer = {
       show: boolean; paused?: boolean; running?: boolean; cta?: string; onCta?: () => void; statusLabel?: string; idx?: number;
       mmss?: string; dash?: string; nextLabel?: string; add?: string[]; remove?: string[]; hasAdd?: boolean;
-      hasRemove?: boolean; noChange?: boolean; lastSet?: boolean; hasChips?: boolean; minus?: () => void;
+      hasRemove?: boolean; noChange?: boolean; lastSet?: boolean; hasChips?: boolean; perSideLabel?: string;
+      togglePause?: () => void; minus?: () => void;
       plus?: () => void; skip?: () => void; aria?: string; remaining?: number; total?: number;
     };
     let timer: Timer = { show: false };
@@ -1220,11 +1228,16 @@ export class PlateIQLogic {
         // it needs its own copy rather than an empty band under a divider
         lastSet: !ns,
         hasChips: d.add.length > 0 || d.rem.length > 0,
+          // a landmine has one end in the anchor: there is no second sleeve to load
+          perSideLabel: m === 'landmine' ? 'on far sleeve' : 'each side',
         // rest is a guess, not a rule — let it be nudged without leaving the panel
         minus: () => this.bumpRest(-15),
         plus: () => this.bumpRest(30),
         skip: () => this.finishRest(),
-        aria: 'Rest timer, ' + mmss(st.remaining) + ' remaining',
+        // the panel had no pause control at all; the header tap is now it
+        togglePause: () => this.setState((x) => ({ paused: !x.paused })),
+        aria: (st.paused ? 'Rest paused, ' : 'Rest timer, ') + mmss(st.remaining) + ' remaining. '
+          + (st.paused ? 'Double tap to resume.' : 'Double tap to pause.'),
       };
     }
     // logging the set you just did: the panel offers reps first, since that's what varies
@@ -1636,12 +1649,23 @@ export class PlateIQLogic {
       // Flips the flag only. The store's platform binding notices false -> true, asks iOS for
       // permission, and writes it back to false if the user declines, so the switch never lies.
       restNotify: st.restNotify,
+      notifyBlocked: st.notifyBlocked,
+      notifyBlockedLabel: 'iOS has notifications turned off for PlateIQ, and will not ask again. '
+        + 'Turn them on in Settings › PlateIQ › Notifications.',
+      saveFailed: st.saveFailed,
+      saveFailedLabel: 'Out of space — this workout is not being saved. Note your numbers before closing.',
+      // The app never said any of this out loud, so nobody had reason to trust it with a log.
+      dataTitle: 'Saved on this iPhone',
+      dataBody: 'Your sessions, settings and plate rack are stored on this phone only. '
+        + 'There are no accounts and nothing is ever sent anywhere. They are included in your '
+        + 'iPhone backup, so they come across when you set up a new phone. Deleting PlateIQ '
+        + 'deletes them.',
       toggleRestNotify: () => this.setState((s) => ({ restNotify: !s.restNotify })),
       openRack: () => this.setState({ sheet: 'rack' }),
       closeSheet: () => this.setState({ sheet: false }),
       openSettings: () => this.setState({ screen: 'settings' }),
       openHistory: () => this.setState({ screen: 'history' }),
-      toggleExpand: () => this.setState((s) => ({ expanded: !s.expanded })),
+      togglePause: () => this.setState((s) => ({ paused: !s.paused })),
       finishRest: () => this.finishRest(),
       resetAll: () => this.setState((s) => ({
         allDone: false, doneIdx: [], activeIdx: null, log: {},

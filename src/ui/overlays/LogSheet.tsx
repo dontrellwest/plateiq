@@ -34,15 +34,15 @@ export function LogSheet({ v }: { v: V }) {
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
         <Field label="Weight lifted">
           <SquareStep glyph="–" label="Lower logged weight" onPress={ls.wDown} />
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>
-            <Num size={26} weight={800} ls={-0.8}>{ls.w}</Num>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3, flexShrink: 1 }}>
+            <Num size={26} weight={800} ls={-0.8} numberOfLines={1}>{ls.w}</Num>
             <Txt size={11} weight={600} color="mut3">{v.unit}</Txt>
           </View>
           <SquareStep glyph="+" label="Raise logged weight" onPress={ls.wUp} />
         </Field>
         <Field label="Reps completed">
           <SquareStep glyph="–" label="One rep fewer" onPress={ls.rDown} />
-          <Num size={26} weight={800} ls={-0.8}>{ls.r}</Num>
+          <Num size={26} weight={800} ls={-0.8} numberOfLines={1} style={{ flexShrink: 1 }}>{ls.r}</Num>
           <SquareStep glyph="+" label="One rep more" onPress={ls.rUp} />
         </Field>
       </View>

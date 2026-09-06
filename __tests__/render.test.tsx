@@ -64,10 +64,10 @@ describe('Main screen', () => {
 
   test('tapping a set starts its rest; logging shows the LOGGED row on the card and on the hero', async () => {
     await mount();
-    await fireEvent.press(screen.getByRole('button', { name: /^Empty bar, 45 lb/ }));
+    await fireEvent.press(screen.getByRole('button', { name: /^Tap when done\. Log Empty bar/ }));
     expect(useStore.getState().activeIdx).toBe(0);
     expect(screen.getAllByText('RESTING').length).toBe(2);
-    await fireEvent.press(screen.getByRole('button', { name: /^Empty bar, 45 lb/ })); // tap again → logged
+    await fireEvent.press(screen.getByRole('button', { name: /log Empty bar and move on/ })); // tap again → logged
     expect(screen.getByText('DONE')).toBeTruthy();
     expect(screen.getByLabelText(/Edit what you logged for Empty bar/)).toBeTruthy();
     await fireEvent.press(screen.getByLabelText(/^Top set\./));

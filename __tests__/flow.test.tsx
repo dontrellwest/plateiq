@@ -22,7 +22,7 @@ describe('rest timer panel', () => {
   test('tapping a set opens the panel with ring, next-set line, diff chips and rest controls', async () => {
     logic.addSet(); // 40% → 90 lb: next load adds 10 · 10 · 2.5 each side
     await mount();
-    await press(/^Empty bar, 45 lb/);
+    await press(/^Tap when done\. Log Empty bar/);
     expect(screen.getAllByText('RESTING').length).toBe(2); // card badge + panel status
     expect(screen.getAllByText('1:00').length).toBeGreaterThanOrEqual(2); // ring + the card's rest pill
     expect(screen.getByText('Next · 40% at 90 lb')).toBeTruthy();
@@ -62,7 +62,7 @@ describe('rest timer panel', () => {
   test('auto-start off: the panel opens paused with a Start rest CTA', async () => {
     useStore.setState({ autoRest: false });
     await mount();
-    await press(/^Empty bar, 45 lb/);
+    await press(/^Tap when done\. Log Empty bar/);
     expect(screen.getByText('SET LOGGED')).toBeTruthy();
     await press('Start rest');
     expect(useStore.getState().paused).toBe(false);
