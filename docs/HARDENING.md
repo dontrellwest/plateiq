@@ -136,6 +136,16 @@ undetermined appearance, immediate settle on a late read failure, the paused-bef
 and composited contrast for the plate chips and warning badges on all eight accents. The randomised
 suite now drives the steppers and typed input as well.
 
+## From the first real gym session (2026-09-05)
+
+- **Saved data was excluded from iPhone backups.** `@react-native-async-storage/async-storage`
+  marks its own directory `NSURLIsExcludedFromBackupKey` by default
+  (`ios/RNCAsyncStorage.mm`, `_ensureSetup`: when the Info.plist key is absent it defaults to YES).
+  Every workout, setting and plate rack would therefore have been lost when restoring a new iPhone
+  from a backup. `ios.infoPlist.RCTAsyncStorageExcludeFromBackup` is now `false`, and a test in
+  `__tests__/hardening.test.tsx` keeps it that way. In a shipped build the data lives in
+  `Application Support/com.plateiq.app/RCTAsyncLocalStorage_V1`, which backups include.
+
 ## Known, deliberately not changed
 
 - lb ↔ kg round trips round to the plate grid, so 135 lb → 60 kg → 130 lb. Exact restoration would

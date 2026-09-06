@@ -10,7 +10,8 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.plateiq.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "RCTAsyncStorageExcludeFromBackup": false
       }
     },
     "android": {

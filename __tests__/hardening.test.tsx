@@ -527,3 +527,18 @@ describe('number fields', () => {
     await cleanup();
   });
 });
+
+describe('shipping configuration', () => {
+  const app = require('../app.json').expo as { ios: { infoPlist: Record<string, unknown>; supportsTablet: boolean }; plugins: unknown[] };
+
+  test('saved data is included in iPhone backups, so it survives a new phone', () => {
+    // @react-native-async-storage/async-storage excludes its directory from backup BY DEFAULT
+    // (ios/RNCAsyncStorage.mm: `if (isExcludedFromBackup == nil) isExcludedFromBackup = @YES`).
+    // Without this key every workout, setting and plate rack is lost when restoring a new device.
+    expect(app.ios.infoPlist.RCTAsyncStorageExcludeFromBackup).toBe(false);
+  });
+
+  test('the App Store export-compliance answer is declared', () => {
+    expect(app.ios.infoPlist.ITSAppUsesNonExemptEncryption).toBe(false);
+  });
+});
