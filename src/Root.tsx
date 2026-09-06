@@ -44,7 +44,7 @@ export function Root() {
       {v.isSettings ? <SettingsScreen v={v} /> : null}
 
       {v.timer.show ? <TimerPanel timer={v.timer} onTogglePause={v.togglePause} /> : null}
-      {v.undoShow ? <UndoToast label={v.undoLabel} aboveTimer={v.timer.show} onUndo={v.undoTap} onDismiss={v.undoDismiss} /> : null}
+      {v.undoShow ? <UndoToast label={v.undoLabel} aboveTimer={v.timer.show} destructive={v.undoDestructive} onUndo={v.undoTap} onDismiss={v.undoDismiss} /> : null}
 
       {v.sheet ? <Scrim onClose={v.closeSheet} /> : null}
       {v.sheetBar ? <BarSheet v={v} /> : null}

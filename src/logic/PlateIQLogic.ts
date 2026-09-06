@@ -100,6 +100,7 @@ export const INITIAL_STATE: AppState = {
   restEndsAt: null,
   tourSnap: null,
   reduceMotion: false,
+  screenReader: false,
 };
 
 /** The harness's headless host: a plain object, patches merged with Object.assign. */
@@ -152,7 +153,8 @@ export class PlateIQLogic {
   _ticking = false;
   tick(now: number = Date.now()) {
     const s = this.state;
-    if (s.undo && now - s.undoAt > 7000) this.setState({ undo: null });
+    // the toast is last in the reading order: seven seconds is not enough to swipe to it
+    if (s.undo && now - s.undoAt > (s.screenReader ? 20000 : 7000)) this.setState({ undo: null });
     if (s.activeIdx === null || s.paused) return;
     // with a wall-clock end time (set by the store binding) the countdown survives backgrounding;
     // headless (harness) it decrements one second per tick exactly like the prototype
@@ -171,7 +173,9 @@ export class PlateIQLogic {
   mount(delayMs = 500) {
     const ob = this.state.onboard === null ? (!this.props || this.props.startOnOnboarding !== false) : this.state.onboard;
     if (this.state.tour === 'auto') {
-      if (ob && !this.state.tourSeen) {
+      // The tour is a visual demo: it dims the screen, lights one control at a time, and drives
+      // real controls whose announcements talk over the caption. Offer it, do not force it.
+      if (ob && !this.state.tourSeen && !this.state.screenReader) {
         // never start (and re-render) while the view is still laying out
         this._tourBoot = setTimeout(() => this.startTour('onboard'), delayMs);
       } else this.setState({ tour: false });
@@ -1672,6 +1676,8 @@ export class PlateIQLogic {
       openHistory: () => this.setState({ screen: 'history' }),
       togglePause: () => this.setState((s) => ({ paused: !s.paused })),
       finishRest: () => this.finishRest(),
+      // only a wipe is worth stealing VoiceOver focus for; every logged set is not
+      undoDestructive: !!st.undo && /^Discarded |^Warm-up set removed$|removed from session$/.test(st.undo.label),
       // the summary is where you notice a wrong rep count; there was no way back to fix it
       backToSets: () => this.setState({ allDone: false }),
       resetAll: () => this.setState((s) => ({

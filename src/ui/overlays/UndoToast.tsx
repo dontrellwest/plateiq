@@ -5,19 +5,23 @@ import { Platform, View } from 'react-native';
 import { announce } from './TimerPanel';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Tap, Txt } from '../primitives';
+import { Tap, Txt, useA11yFocus } from '../primitives';
 import { useTheme } from '../theme';
 import { useSlideUp } from '../motion';
 import { TIMER_STACK } from './TimerPanel';
 
-export function UndoToast({ label, aboveTimer, onUndo, onDismiss }: { label: string; aboveTimer: boolean; onUndo: () => void; onDismiss: () => void }) {
+export function UndoToast({ label, aboveTimer, destructive, onUndo, onDismiss }: { label: string; aboveTimer: boolean; destructive?: boolean; onUndo: () => void; onDismiss: () => void }) {
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(220, reduceMotion);
+  // For a logged set, moving focus here after every single set would be worse than leaving it.
+  // For a wipe it is the only way back, and the toast is behind the whole ladder.
+  const focusRef = useA11yFocus<View>();
   // iOS VoiceOver ignores live regions: say what happened, and that it can be undone
   useEffect(() => { announce(label + '. Undo available'); }, [label]);
   return (
     <Animated.View
+      ref={destructive ? focusRef : undefined}
       // announce() below does the speaking on every platform; a live region as well
       // makes Android read the toast twice
       style={[

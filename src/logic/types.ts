@@ -111,6 +111,8 @@ export interface AppState {
   restEndsAt: number | null;
   tourSnap: StatePatch | null; // persisted so a kill mid-tour restores the real workout
   reduceMotion: boolean;
+  /** VoiceOver (or another screen reader) is on. */
+  screenReader: boolean;
 }
 
 export type StatePatch = Partial<AppState>;

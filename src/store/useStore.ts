@@ -329,6 +329,8 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
   const schemeSub = Appearance.addChangeListener(applyScheme);
 
   AccessibilityInfo.isReduceMotionEnabled().then((v) => useStore.setState({ reduceMotion: !!v })).catch(() => undefined);
+  AccessibilityInfo.isScreenReaderEnabled().then((v) => useStore.setState({ screenReader: !!v })).catch(() => undefined);
+  const srSub = AccessibilityInfo.addEventListener('screenReaderChanged', (v) => useStore.setState({ screenReader: !!v }));
   const rmSub = AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => useStore.setState({ reduceMotion: !!v }));
 
   booted = () => {
@@ -342,6 +344,7 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     appSub.remove();
     schemeSub.remove();
     rmSub.remove();
+    srSub.remove();
     logic.unmount();
     booted = null;
     settled = false; // a later boot (tests, hot reload) settles again

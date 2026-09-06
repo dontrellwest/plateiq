@@ -164,8 +164,9 @@ function SetCard({ s, v }: { s: SetVM; v: View_ }) {
             <Txt size={11.5} weight={600} color="tx4" align="center" style={{ minWidth: 42, fontVariant: ['tabular-nums'] }}>{s.reps} reps</Txt>
             <PillButton glyph="+" label="One rep more" onPress={s.repsUp!} w={38} inner={26} />
           </View>
-          <Tap label={'Rest ' + s.restLabel + ', tap to change'} onPress={s.restTap!} style={{ flexDirection: 'row', alignItems: 'center', height: 40, paddingHorizontal: 13, borderRadius: 99, backgroundColor: c('ctl') }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
+          <Tap label={'Rest ' + s.restLabel + ', tap to step to the next rest length'} onPress={s.restTap!} style={{ flexDirection: 'row', alignItems: 'center', height: 40, paddingHorizontal: 13, borderRadius: 99, backgroundColor: c('ctl') }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
             <Txt size={11.5} weight={600} color="tx4" style={{ fontVariant: ['tabular-nums'] }}>{s.restLabel}</Txt>
+            <Txt size={10} color="mut4" style={{ marginLeft: 4 }}>›</Txt>
             <Txt size={11.5} weight={600} color="mut2" style={{ marginLeft: 4 }}>rest</Txt>
           </Tap>
           <Tap label={'Remove ' + s.label} onPress={s.remove!} style={{ height: 40, paddingHorizontal: 13, borderRadius: 99, backgroundColor: c('danA11'), alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' }} pressedStyle={{ backgroundColor: c('danA22') }}>

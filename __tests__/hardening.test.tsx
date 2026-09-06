@@ -813,3 +813,70 @@ describe('copy', () => {
     expect(l.renderVals().sessionsLabel).toBe('1 session logged');
   });
 });
+
+describe('the rest panel says what it means', () => {
+  test('landmine loads one sleeve, so the panel does not say "each side"', () => {
+    const l = fresh({ mode: 'landmine' });
+    l.tapSet(0);
+    expect(state(l).activeIdx).not.toBeNull();
+    expect(l.renderVals().timer.perSideLabel).toBe('on far sleeve');
+    const b = fresh({ mode: 'barbell' });
+    b.tapSet(0);
+    expect(b.renderVals().timer.perSideLabel).toBe('each side');
+  });
+
+  test('the panel header pauses and resumes, instead of flipping a flag nobody reads', () => {
+    const l = fresh();
+    l.tapSet(0);
+    expect(state(l).paused).toBe(false);
+    l.renderVals().timer.togglePause!();
+    expect(state(l).paused).toBe(true);
+    expect(l.renderVals().timer.cta).toBe('Start rest');
+    l.renderVals().timer.togglePause!();
+    expect(state(l).paused).toBe(false);
+  });
+});
+
+describe('accessibility', () => {
+  test('the tour does not ambush a VoiceOver user on first launch', () => {
+    const off = new PlateIQLogic(new MemoryHost(), { startOnOnboarding: true });
+    off.setState({ tour: 'auto', tourSeen: false, onboard: null, screenReader: true });
+    off.mount(0);
+    expect(state(off).tour).toBe(false);
+    const on = new PlateIQLogic(new MemoryHost(), { startOnOnboarding: true });
+    on.setState({ tour: 'auto', tourSeen: false, onboard: null, screenReader: false });
+    on.mount(0);
+    expect(state(on).tour).toBe('auto'); // still pending its timer, not cancelled
+    on.unmount();
+    off.unmount();
+  });
+
+  test('the undo toast lasts long enough to reach by swiping', () => {
+    const l = fresh({ screenReader: true });
+    l.tapSet(0); l.finishRest();
+    const at = state(l).undoAt;
+    l.tick(at + 9000);
+    expect(state(l).undo).not.toBeNull(); // 7 s would already have dropped it
+    l.tick(at + 21000);
+    expect(state(l).undo).toBeNull();
+  });
+
+  test('only a wipe steals VoiceOver focus, not every logged set', () => {
+    const l = fresh();
+    l.tapSet(0); l.finishRest();
+    expect(l.renderVals().undoDestructive).toBe(false);
+    l.renderVals().resetAll();
+    expect(l.renderVals().undoDestructive).toBe(true);
+  });
+});
+
+describe('the completion card has a way back', () => {
+  test('Back to sets reopens the ladder without discarding or saving', () => {
+    const l = fresh();
+    l.setState({ allDone: true, doneIdx: [0], log: { 0: { w: 45, r: 5, planW: 45, planR: 5 } } } as Partial<AppState>);
+    l.renderVals().backToSets();
+    expect(state(l).allDone).toBe(false);
+    expect(state(l).doneIdx).toEqual([0]);
+    expect(state(l).records.length).toBe(0);
+  });
+});
