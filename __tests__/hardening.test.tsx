@@ -542,3 +542,118 @@ describe('shipping configuration', () => {
     expect(app.ios.infoPlist.ITSAppUsesNonExemptEncryption).toBe(false);
   });
 });
+
+describe('rest-end alert', () => {
+  const audio = require('expo-audio');
+  const notifs = require('expo-notifications');
+  const restAlert = require('../src/platform/restAlert');
+  const { _resetSoundForTests } = require('../src/platform/sound');
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    restAlert._resetForTests();
+    _resetSoundForTests();
+    _resetHydrationForTests();
+    useStore.setState({ ...INITIAL_STATE, onboard: false, tour: false }, true);
+    await new Promise((r) => setTimeout(r, 20));
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  });
+  afterEach(() => { haptics.cancelTimerDone(); });
+
+  test('the buzz is a pattern, not one pulse, and it stops on its own', () => {
+    jest.useFakeTimers();
+    try {
+      const mod = require('expo-haptics');
+      const notify = jest.spyOn(mod, 'notificationAsync').mockResolvedValue(undefined);
+      const impact = jest.spyOn(mod, 'impactAsync').mockResolvedValue(undefined);
+      haptics.timerDone();
+      expect(notify).toHaveBeenCalledTimes(1);
+      expect(impact).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(2000);
+      expect(impact).toHaveBeenCalledTimes(6);
+      jest.advanceTimersByTime(10000);
+      expect(impact).toHaveBeenCalledTimes(6); // it never nags
+      notify.mockRestore(); impact.mockRestore();
+    } finally { jest.useRealTimers(); }
+  });
+
+  test('the chime plays over the user music and through the silent switch', () => {
+    restAlert.fire(true);
+    expect(audio.setAudioModeAsync).toHaveBeenCalledWith(expect.objectContaining({
+      playsInSilentMode: true,        // audible with the ring switch on silent
+      interruptionMode: 'mixWithOthers', // never stops what they are listening to
+      shouldPlayInBackground: false,
+    }));
+    expect(audio.createAudioPlayer).toHaveBeenCalledTimes(1);
+  });
+
+  test('the chime is silent when the user has turned it off', () => {
+    restAlert.fire(false);
+    expect(audio.__player.play).not.toHaveBeenCalled();
+  });
+
+  test('no lock-screen alert is scheduled until the user asks for one', async () => {
+    const stop = bootStore({ tourDelay: 0 });
+    try {
+      storeLogic.tapSet(0);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(notifs.scheduleNotificationAsync).not.toHaveBeenCalled();
+      expect(notifs.requestPermissionsAsync).not.toHaveBeenCalled();
+    } finally { stop(); }
+  });
+
+  test('switching the alert on asks once, then schedules it for the moment the rest ends', async () => {
+    const t0 = 1_700_000_000_000;
+    const stop = bootStore({ tourDelay: 0, now: () => t0 });
+    try {
+      storeLogic.renderVals().toggleRestNotify();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(notifs.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+      expect(useStore.getState().restNotify).toBe(true);
+      storeLogic.tapSet(0);
+      await new Promise((r) => setTimeout(r, 400));
+      const req = notifs.scheduleNotificationAsync.mock.calls.at(-1)[0];
+      expect(req.identifier).toBe('plateiq.rest-end');
+      expect(req.trigger.date.getTime()).toBe(useStore.getState().restEndsAt);
+      expect(req.content.title).toBeTruthy();
+    } finally { stop(); }
+  });
+
+  test('declining the permission turns the switch back off instead of lying', async () => {
+    notifs.getPermissionsAsync.mockResolvedValueOnce({ granted: false, canAskAgain: true, status: 'undetermined' });
+    notifs.requestPermissionsAsync.mockResolvedValueOnce({ granted: false, status: 'denied' });
+    const stop = bootStore({ tourDelay: 0 });
+    try {
+      storeLogic.renderVals().toggleRestNotify();
+      await new Promise((r) => setTimeout(r, 60));
+      expect(useStore.getState().restNotify).toBe(false);
+    } finally { stop(); }
+  });
+
+  test('finishing, skipping or pausing a rest takes the pending alert away', async () => {
+    const stop = bootStore({ tourDelay: 0 });
+    try {
+      useStore.setState({ restNotify: true });
+      await new Promise((r) => setTimeout(r, 60));
+      storeLogic.tapSet(0);
+      await new Promise((r) => setTimeout(r, 300));
+      notifs.cancelScheduledNotificationAsync.mockClear();
+      storeLogic.finishRest();
+      await new Promise((r) => setTimeout(r, 300));
+      expect(notifs.cancelScheduledNotificationAsync).toHaveBeenCalledWith('plateiq.rest-end');
+    } finally { stop(); }
+  });
+
+  test('the guided tour never puts a demo rest on the lock screen', async () => {
+    const stop = bootStore({ tourDelay: 0 });
+    try {
+      useStore.setState({ restNotify: true });
+      await new Promise((r) => setTimeout(r, 60));
+      notifs.scheduleNotificationAsync.mockClear();
+      useStore.setState({ tour: 'play' });
+      storeLogic.tapSet(1);
+      await new Promise((r) => setTimeout(r, 400));
+      expect(notifs.scheduleNotificationAsync).not.toHaveBeenCalled();
+    } finally { useStore.setState({ tour: false }); stop(); }
+  });
+});

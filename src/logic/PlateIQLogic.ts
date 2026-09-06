@@ -63,6 +63,8 @@ export const INITIAL_STATE: AppState = {
   units: 'lb',
   roundTo: 0.25,
   autoRest: true,
+  restSound: true,
+  restNotify: false,
   // guided tour: 'auto' = undecided until mount, 'play' = running, false = off
   tour: 'auto',
   tourPaused: false,
@@ -1578,6 +1580,13 @@ export class PlateIQLogic {
       anchorDefault: ANCHOR_LABEL[st.anchorType],
       autoRest: st.autoRest,
       toggleAuto: () => this.setState((s) => ({ autoRest: !s.autoRest })),
+      // Neither of these changes what the ladder prescribes, so neither calls progressReset().
+      restSound: st.restSound,
+      toggleRestSound: () => this.setState((s) => ({ restSound: !s.restSound })),
+      // Flips the flag only. The store's platform binding notices false -> true, asks iOS for
+      // permission, and writes it back to false if the user declines, so the switch never lies.
+      restNotify: st.restNotify,
+      toggleRestNotify: () => this.setState((s) => ({ restNotify: !s.restNotify })),
       openRack: () => this.setState({ sheet: 'rack' }),
       closeSheet: () => this.setState({ sheet: false }),
       openSettings: () => this.setState({ screen: 'settings' }),

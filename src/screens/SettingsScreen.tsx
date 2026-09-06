@@ -151,6 +151,8 @@ export function SettingsScreen({ v }: { v: V }) {
       <SectionTitle text="Session" />
       <Group>
         <Row title="Auto-start rest timer" sub="Starts the moment you tap a set" right={<Toggle on={v.autoRest} label="Auto-start rest timer" onPress={v.toggleAuto} />} />
+        <Row title="Chime when rest ends" sub="Plays over your music, and even with the ring switch on silent" right={<Toggle on={v.restSound} label="Chime when rest ends" onPress={v.toggleRestSound} />} />
+        <Row title="Alert on the lock screen" sub="Reaches you when the app is closed — asks permission the first time" right={<Toggle on={v.restNotify} label="Alert on the lock screen" onPress={v.toggleRestNotify} />} />
         <Row title="Watch the tour" sub="The guided walkthrough, again" onPress={v.tourFromSettings} label="Watch the tour" right={<Txt size={13} color="mut4">Play ›</Txt>} />
         <Row title="Training history" sub={v.sessionsLabel} onPress={v.goHistory} label="Training history" last right={<Txt size={13} color="mut4">Open ›</Txt>} />
       </Group>

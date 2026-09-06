@@ -11,12 +11,15 @@ import { useMemo } from 'react';
 import { INITIAL_STATE, PlateIQLogic } from '../logic/PlateIQLogic';
 import type { AppState, StatePatch } from '../logic/types';
 import { haptics } from '../platform/haptics';
+import * as restAlert from '../platform/restAlert';
+import * as notify from '../platform/notify';
 
 /** Keys that survive a relaunch: settings, rack, session queue, workout plan + logs, history, flow flags, and a running rest. */
 export const PERSISTED_KEYS: Array<keyof AppState> = [
   // settings
   'units', 'roundTo', 'theme', 'accent', 'homeGym', 'qty', 'comp', 'collarId', 'minChanges', 'autoRest',
   'anchorType', 'barProfile', 'bar', 'barDraft', 'dbHandle', 'dbPair', 'mode',
+  'restSound', 'restNotify',
   // workout plan + progress
   'working', 'dbTotal', 'lmTarget', 'warmups', 'scheme', 'doneIdx', 'log', 'allDone', 'rmW', 'rmR', 'rmRpe',
   // the rest in progress: iOS may terminate a suspended app between sets; the wall-clock end time
@@ -220,6 +223,18 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
   const now = opts.now || (() => Date.now());
   let settling = true;
 
+  restAlert.installHandler();
+
+  /** Arm or disarm the lock-screen alert from whatever the rest currently is. */
+  const syncRestAlert = () => {
+    const s = useStore.getState();
+    // the guided tour drives a real tapSet: its demo rest must never reach the lock screen
+    if (s.tour === 'play') { void restAlert.disarm(); return; }
+    const live = s.activeIdx !== null && !s.paused && s.restEndsAt !== null && s.restEndsAt > now();
+    if (live) restAlert.arm(s.restEndsAt as number, now(), { sound: s.restSound, notify: s.restNotify });
+    else void restAlert.disarm();
+  };
+
   const finishHydration = () => {
     if (settled) return;
     const s = useStore.getState();
@@ -245,6 +260,9 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     useStore.setState({ barDraft: String(s2.mode === 'dumbbell' ? s2.dbHandle : s2.bar), workDraft: null });
     settling = false;
     settled = true;
+    // iOS keeps scheduled notifications across a force-quit; clear them, then re-arm from the rest
+    // that was just restored, if there was one.
+    void restAlert.bootCleanup().then(syncRestAlert);
     logic.mount(opts.tourDelay ?? 500);
     settledListeners.splice(0).forEach((cb) => cb());
   };
@@ -265,8 +283,24 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     if (s.activeIdx !== null && s.remaining === 0 && prev.remaining > 0 && prev.activeIdx === s.activeIdx) {
       // the rest ended while the phone was locked: a buzz now would read as "rest just ended"
       const late = s.restEndsAt !== null && now() - s.restEndsAt > 2500;
-      if (!late) haptics.timerDone();
+      if (!late) restAlert.fire(s.restSound);
     }
+  });
+
+  // Watches the rest itself, and the moment the user switches the lock-screen alert on.
+  const unsubAlert = useStore.subscribe((s, prev) => {
+    if (settling) return;
+    if (s.restNotify && !prev.restNotify) {
+      // the switch just went on: ask once, here, never on launch
+      void notify.ensurePermission().then((ok) => {
+        if (!ok) useStore.setState({ restNotify: false }); // the switch flips itself back
+        else syncRestAlert();
+      });
+      return;
+    }
+    const changed = s.activeIdx !== prev.activeIdx || s.restEndsAt !== prev.restEndsAt
+      || s.paused !== prev.paused || s.restNotify !== prev.restNotify || s.tour !== prev.tour;
+    if (changed) syncRestAlert();
   });
 
   const appSub = RNAppState.addEventListener('change', (st) => { if (st === 'active') logic.tick(now()); });
@@ -283,6 +317,8 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     clearInterval(interval);
     clearTimeout(fallback);
     unsub();
+    unsubAlert();
+    restAlert.teardown();
     offHydrate();
     appSub.remove();
     schemeSub.remove();

@@ -73,6 +73,10 @@ export interface AppState {
   units: Units;
   roundTo: RoundTo;
   autoRest: boolean;
+  /** Play the chime when a rest ends. On by default: it is the fix for a buzz that was missed. */
+  restSound: boolean;
+  /** Schedule a lock-screen alert for the end of a rest. Off until asked: turning it on prompts. */
+  restNotify: boolean;
   // guided tour: 'auto' = undecided until mount, 'play' = running, false = off
   tour: TourState;
   tourPaused: boolean;

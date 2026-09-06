@@ -12,6 +12,9 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "RCTAsyncStorageExcludeFromBackup": false
+      },
+      "entitlements": {
+        "com.apple.developer.usernotifications.time-sensitive": true
       }
     },
     "android": {
@@ -40,6 +43,11 @@
             "backgroundColor": "#0b0c0e"
           }
         }
+      ],
+      "expo-audio",
+      [
+        "expo-notifications",
+        {}
       ]
     ]
   }
