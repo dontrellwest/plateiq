@@ -121,7 +121,7 @@ const storage: PersistStorage<AppState> = {
     return JSON.parse(raw) as StorageValue<AppState>;
   },
   setItem: async (name, value) => {
-    const next = value.state as unknown as Record<string, unknown>;
+    const next = (value && value.state ? value.state : {}) as unknown as Record<string, unknown>;
     if (lastWritten && PERSISTED_KEYS.every((k) => Object.is(lastWritten![k], next[k]))) return;
     lastWritten = { ...next };
     try {
