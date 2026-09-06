@@ -24,7 +24,7 @@ polish. See `README.md` for the layout and `docs/MAC-HANDOFF.md` for running on 
   are images with spoken load descriptions. Reduced motion disables every animation.
 - Gradients are react-native-svg only (no expo-linear-gradient). Archivo is for numerals only.
 - After touching the maths or reducers: `npm run test:full` (≈10 min) must stay green. `npm test` also
-  runs `__tests__/hardening.test.ts` (one test per fixed defect) and `__tests__/invariants.test.ts`
+  runs `__tests__/hardening.test.tsx` (one test per fixed defect) and `__tests__/invariants.test.ts`
   (randomised; the seed is printed — reproduce with `PLATEIQ_SEED`). The differential test compares
   `renderVals().warn` among other fields, so never change the warn copy or `missSet` logic. It is
   SKIPPED on any machine without the Claude Design export (it says so loudly). The export is a
@@ -51,6 +51,9 @@ npx expo start --web  # browser preview; window.plateiq = { useStore, logic } in
 ## Known leftovers
 - App icon is the Expo default (`assets/`); the splash is configured through the `expo-splash-screen`
   plugin in app.json (dark, `splash-icon.png`).
+- See `docs/PRESHIP.md` for the 2026-09-06 pre-ship audit: the App Store blockers fixed, what was
+  deliberately left, and the claims that did not survive scrutiny (so they are not re-raised).
+  `docs/privacy.html` and `docs/support.html` are written but GitHub Pages is not switched on yet.
 - See `docs/HARDENING.md` for the 2026-09-05 audit: what was fixed and what was deliberately left
   (unit round-trip rounding, timer only on Main, no background notification, lb-only tour history).
 - Verified on the iOS 26.5 Simulator (iPhone 17 Pro, Expo Go) on 2026-09-05: tour, onboarding,
