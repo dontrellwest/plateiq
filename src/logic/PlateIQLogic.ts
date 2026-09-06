@@ -565,13 +565,26 @@ export class PlateIQLogic {
   }
   advanceSession() {
     const s = this.state;
-    const done = s.sessionDone.indexOf(s.exercise) >= 0 ? s.sessionDone : s.sessionDone.concat([s.exercise]);
-    const next = s.session.find((n) => done.indexOf(n) < 0);
+    // only a lift that is actually queued counts towards "N of M"
+    const queued = s.session.indexOf(s.exercise) >= 0;
+    const done = !queued || s.sessionDone.indexOf(s.exercise) >= 0
+      ? s.sessionDone
+      : s.sessionDone.concat([s.exercise]);
+    let next = s.session.find((n) => done.indexOf(n) < 0);
+    // Snapshot NOW: under a host that mutates its state object in place, reading `s` after the
+    // writes below would capture the post-advance values instead of the ones undo has to restore.
+    const back = this.undoPatch(s, 'Finished ' + s.exercise, ['sessionDone', 'allDone', 'doneIdx', 'activeIdx', 'log', 'exercise', 'mode', 'working', 'dbTotal', 'lmTarget', 'barDraft']);
+    // Every queued lift is finished. Start the queue over instead of dead-ending, which otherwise
+    // leaves every later day opening on "Session · 3 of 3" with everything already ticked.
+    const wrapped = !next && s.session.length > 0;
+    if (wrapped) next = s.session[0];
     this.setState({
-      sessionDone: done, allDone: false, doneIdx: [], activeIdx: null, log: {}, paused: false,
-      ...this.undoPatch(s, 'Finished ' + s.exercise, ['sessionDone', 'allDone', 'doneIdx', 'activeIdx', 'log', 'exercise', 'mode', 'working', 'dbTotal', 'lmTarget', 'barDraft']),
+      sessionDone: wrapped ? [] : done, allDone: false, doneIdx: [], activeIdx: null, log: {}, paused: false,
     });
     if (next) this.goExercise(next);
+    // Applied last, on purpose: goExercise routes through pickExercise, which drops any pending undo
+    // so a stale one cannot follow you onto the next lift. This undo is the deliberate exception.
+    this.setState(back);
   }
   bumpRest(d: number) {
     this.setState((s) => {
@@ -739,14 +752,21 @@ export class PlateIQLogic {
     });
   }
   setPct(id: string, d: number) {
-    this.setState((s) => ({
-      warmups: s.warmups.map((w) => {
-        if (w.id !== id) return w;
-        const pct = Math.max(0, Math.min(95, w.pct + d));
-        return { ...w, pct, label: pct === 0 ? 'Empty bar' : pct + '%' };
-      }).sort((a, b) => a.pct - b.pct),
-      ...this.progressReset(),
-    }));
+    this.setState((s) => {
+      const cur = s.warmups.find((w) => w.id === id);
+      // clamped at 0 or 95: the press moves nothing, so it must not clear the ladder
+      if (!cur || Math.max(0, Math.min(95, cur.pct + d)) === cur.pct) return null;
+      return {
+        warmups: s.warmups.map((w) => {
+          if (w.id !== id) return w;
+          const pct = Math.max(0, Math.min(95, w.pct + d));
+          return { ...w, pct, label: pct === 0 ? 'Empty bar' : pct + '%' };
+        }).sort((a, b) => a.pct - b.pct),
+        // re-sorting the ladder shifts every set index the pending undo refers to
+        undo: null,
+        ...this.progressReset(),
+      };
+    });
   }
   nextRung(warmups: Warmup[]): number | null {
     if (warmups.length >= 6) return null;
@@ -858,7 +878,7 @@ export class PlateIQLogic {
     return this.lmEffective(this.baseTotal());
   }
   setMode(id: Mode) {
-    this.setState((s) => ({
+    this.setState((s) => (s.mode === id ? null : {
       mode: id,
       workDraft: null,
       barDraft: String(id === 'dumbbell' ? s.dbHandle : s.bar),
@@ -892,7 +912,7 @@ export class PlateIQLogic {
     if (prof) this.setState((s) => ({ bar: prof.w, barDraft: s.mode === 'dumbbell' ? s.barDraft : String(prof.w), working: Math.max(s.working, prof.w) }));
   }
   pickBarProfile(p: BarProfile) {
-    this.setState((s) => ({
+    this.setState((s) => (s.barProfile === p.id ? { sheet: false } : {
       barProfile: p.id, bar: p.w, barDraft: s.mode === 'dumbbell' ? s.barDraft : String(p.w),
       working: Math.max(p.w + this.step(), s.working),
       sheet: false, ...this.progressReset(),
@@ -913,13 +933,17 @@ export class PlateIQLogic {
   }
   pickExercise(x: { name: string; mode: Mode; last?: string }) {
     const t = this.lastTarget(x);
-    this.setState((s) => ({
+    // Tapping the lit session chip, or the lift you are already on in the Library, is navigation
+    // only — rebuilding the ladder there would clear the sets you have already logged.
+    this.setState((s) => (s.exercise === x.name && s.mode === x.mode ? { screen: 'main' } : {
       exercise: x.name, mode: x.mode, screen: 'main',
       workDraft: null,
       barDraft: String(x.mode === 'dumbbell' ? s.dbHandle : s.bar),
       working: x.mode === 'barbell' && t ? Math.max(s.bar + this.step(), this.roundTarget(t)) : s.working,
       dbTotal: x.mode === 'dumbbell' && t ? Math.max(s.dbHandle + this.step(), this.roundInc(t)) : s.dbTotal,
       lmTarget: x.mode === 'landmine' && t ? t : s.lmTarget,
+      // the pending undo describes a rest or a log on the previous lift's ladder
+      undo: null,
       ...this.progressReset(),
     }));
   }
@@ -1037,11 +1061,19 @@ export class PlateIQLogic {
     const snap = (n: number, dir: number) => Math.round((dir > 0 ? Math.ceil(n / grid - 1e-9) : Math.floor(n / grid + 1e-9)) * grid * 1000) / 1000;
     // the lowest target the steppers offer is one plate step above the implement, on the grid
     const gridFloor = (n: number) => snap(n, 1);
-    const bump = (d: number) => this.setState((s) => (dbl
-      ? { dbTotal: stepTo(s.dbTotal, snap(s.dbTotal + Math.sign(d) * step, d), gridFloor(s.dbHandle + step)), ...this.progressReset() }
-      : m === 'landmine'
-        ? { lmTarget: stepTo(s.lmTarget, lmStep(s.lmTarget, d), this.lmFloor(s)), ...this.progressReset() }
-        : { working: stepTo(s.working, snap(s.working + Math.sign(d) * step, d), gridFloor(s.bar + step)), ...this.progressReset() }));
+    const bump = (d: number) => this.setState((s) => {
+      // A press the floor swallows leaves the target where it was, so it must not clear the ladder.
+      if (dbl) {
+        const next = stepTo(s.dbTotal, snap(s.dbTotal + Math.sign(d) * step, d), gridFloor(s.dbHandle + step));
+        return next === s.dbTotal ? null : { dbTotal: next, ...this.progressReset() };
+      }
+      if (m === 'landmine') {
+        const next = stepTo(s.lmTarget, lmStep(s.lmTarget, d), this.lmFloor(s));
+        return next === s.lmTarget ? null : { lmTarget: next, ...this.progressReset() };
+      }
+      const next = stepTo(s.working, snap(s.working + Math.sign(d) * step, d), gridFloor(s.bar + step));
+      return next === s.working ? null : { working: next, ...this.progressReset() };
+    });
 
     const scale = dbl ? (st.dbPair ? 0.5 : 0.62) : 1;
     const pScale = m === 'landmine' ? 0.44 : scale;
@@ -1146,7 +1178,7 @@ export class PlateIQLogic {
     const oLast = oIdx >= oSteps.length - 1;
     const dbVals = DB_SETS[st.units] || DB_SETS.lb;
     const dbGuess = st.homeGym ? (st.units === 'kg' ? 2.5 : 5) : (st.units === 'kg' ? 5 : 10);
-    const pickHandle = (v: number) => this.setState((s) => ({
+    const pickHandle = (v: number) => this.setState((s) => (s.dbHandle === v ? null : {
       dbHandle: v,
       barDraft: s.mode === 'dumbbell' ? String(v) : s.barDraft,
       dbTotal: Math.max(v + this.step(), s.dbTotal),
@@ -1284,7 +1316,9 @@ export class PlateIQLogic {
           ? (Math.floor((st.qty[w] || 0) / 2) === 1 ? '1 pair' : Math.floor((st.qty[w] || 0) / 2) + ' pairs')
           : 'none owned',
         inc: () => this.setState((x) => ({ qty: { ...x.qty, [w]: (x.qty[w] || 0) + 1 }, ...this.progressReset() })),
-        dec: () => this.setState((x) => ({ qty: { ...x.qty, [w]: Math.max(0, (x.qty[w] || 0) - 1) }, ...this.progressReset() })),
+        dec: () => this.setState((x) => ((x.qty[w] || 0) === 0
+          ? null
+          : { qty: { ...x.qty, [w]: (x.qty[w] || 0) - 1 }, ...this.progressReset() })),
       };
     });
 
@@ -1398,7 +1432,7 @@ export class PlateIQLogic {
         bg: st.dbPair === o.id ? 'accA16' : 'card3',
         bd: st.dbPair === o.id ? 'accA50' : 'bdSoft',
         fg: st.dbPair === o.id ? 'accDeep' : 'mut',
-        pick: () => this.setState({ dbPair: o.id, ...this.progressReset() }),
+        pick: () => this.setState((cur) => (cur.dbPair === o.id ? null : { dbPair: o.id, ...this.progressReset() })),
       })),
       gymOptions: ([
         { id: false, title: 'Commercial gym', note: 'Plenty of plates — skip counting' },
@@ -1438,7 +1472,9 @@ export class PlateIQLogic {
           markBg: st.scheme === s.id ? 'acc' : 'transparent',
           markBd: st.scheme === s.id ? 'acc' : 'bdMid',
           markFg: st.scheme === s.id ? 'accInk' : 'transparent',
-          pick: () => this.setState({ scheme: s.id, sheet: false, ...this.progressReset() }),
+          pick: () => this.setState((cur) => (cur.scheme === s.id
+            ? { sheet: false }
+            : { scheme: s.id, sheet: false, undo: null, ...this.progressReset() })),
         };
       }),
       tapWork: () => this.tapSet(workIndex),
@@ -1480,7 +1516,7 @@ export class PlateIQLogic {
       historyEmpty: hist.empty, historySample: hist.sample,
 
       // ---- session queue
-      sessionChips, hasSession: st.session.length > 1,
+      sessionChips, hasSession: st.session.length >= 1,
       sessionPosLabel: 'Session · ' + sessionPos + ' of ' + st.session.length,
       nextUp, hasNextUp: !!nextUp,
       nextUpLabel: nextUp ? 'Next · ' + nextUp : '',
@@ -1645,7 +1681,7 @@ export class PlateIQLogic {
       canAddSet: this.nextRung(st.warmups) !== null,
       canAddSetTail: this.nextRung(st.warmups) !== null && afterSets.length === 0,
       afterHeading: p.scheme.name.toUpperCase(),
-      sessionsLabel: hist.count + ' sessions logged',
+      sessionsLabel: hist.count + (hist.count === 1 ? ' session logged' : ' sessions logged'),
       sessionsStat: String(hist.count),
       finishedAt: p.work.main + ' ' + st.units,
       saveSession: () => {
@@ -1742,7 +1778,7 @@ export class PlateIQLogic {
         bg: st.collarId === c.id ? 'accA16' : 'ctl2',
         bd: st.collarId === c.id ? 'accA50' : 'bdSoft',
         fg: st.collarId === c.id ? 'accDeep' : 'mut2',
-        pick: () => this.setState({ collarId: c.id, ...this.progressReset() }),
+        pick: () => this.setState((cur) => (cur.collarId === c.id ? null : { collarId: c.id, ...this.progressReset() })),
       })),
       collarLine: st.comp && this.collar().w > 0
         ? 'Bar ' + p.barOnly + ' + collars ' + this.collarWeight() + ' = ' + p.base + ' ' + st.units + ' base'

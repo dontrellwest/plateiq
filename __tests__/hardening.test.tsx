@@ -716,3 +716,100 @@ describe('guided tour spotlight', () => {
     for (let i = 1; i < frames.length; i++) expect(frames[i].t).toBeGreaterThan(frames[i - 1].t);
   });
 });
+
+// ---- 2026-09-06 pre-ship audit: controls that cleared progress without changing anything --------
+
+describe('a control that changes nothing keeps your logged sets', () => {
+  test('re-picking the lift you are already on is navigation, not a rebuild', () => {
+    const l = fresh({ session: ['Bench press', 'Overhead press'], exercise: 'Bench press', screen: 'library' });
+    l.tapSet(0); l.finishRest();
+    expect(state(l).doneIdx).toEqual([0]);
+    l.goExercise('Bench press');
+    expect(state(l).doneIdx).toEqual([0]);
+    expect(state(l).screen).toBe('main');
+  });
+
+  test('switching lifts drops the previous lift’s pending undo, so it cannot be applied here', () => {
+    const l = fresh({ session: ['Bench press', 'Overhead press'], exercise: 'Bench press' });
+    l.tapSet(0); l.finishRest();
+    expect(state(l).undo).not.toBeNull();
+    l.goExercise('Overhead press');
+    expect(state(l).undo).toBeNull();
+  });
+
+  test('the mode you are already in, and the bar you already have, leave the ladder alone', () => {
+    const l = fresh();
+    l.tapSet(0); l.finishRest();
+    l.setMode('barbell');
+    expect(state(l).doneIdx).toEqual([0]);
+    const p = (BAR_PROFILES.lb || [])[0];
+    l.setState({ barProfile: p.id, sheet: 'bar' as AppState['sheet'] });
+    l.pickBarProfile(p);
+    expect(state(l).doneIdx).toEqual([0]);
+    expect(state(l).sheet).toBe(false); // re-picking still closes the sheet
+  });
+
+  test('− on the 0% rung is clamped, so it cannot clear the ladder', () => {
+    const l = fresh();
+    l.tapSet(0); l.finishRest();
+    const zero = state(l).warmups.find((w) => w.pct === 0);
+    expect(zero).toBeTruthy();
+    l.setPct((zero as { id: string }).id, -5);
+    expect(state(l).doneIdx).toEqual([0]);
+    l.setPct((zero as { id: string }).id, 5); // a real move still rebuilds
+    expect(state(l).doneIdx).toEqual([]);
+  });
+
+  test('a target stepper the floor swallows does not clear the ladder', () => {
+    const l = fresh();
+    l.setState({ working: state(l).bar + 5 });
+    l.renderVals().decWorking(); // down to the floor
+    const floor = state(l).working;
+    l.tapSet(0); l.finishRest();
+    l.renderVals().decWorking(); // already there: no move, no wipe
+    expect(state(l).working).toBe(floor);
+    expect(state(l).doneIdx).toEqual([0]);
+  });
+
+  test('the rack − owns nothing to remove at zero', () => {
+    const l = fresh({ homeGym: true });
+    const w = Object.keys(state(l).qty)[0];
+    l.setState({ qty: { ...state(l).qty, [w]: 0 } });
+    l.tapSet(0); l.finishRest();
+    const row = l.renderVals().rackRows.find((r: { label: string }) => r.label === String(w));
+    if (row) { row.dec(); expect(state(l).doneIdx).toEqual([0]); }
+  });
+});
+
+describe('the session queue works on day two', () => {
+  test('finishing the last queued lift starts the queue again instead of dead-ending', () => {
+    const l = fresh({ session: ['Bench press', 'Overhead press'], exercise: 'Bench press' });
+    l.advanceSession();
+    expect(state(l).exercise).toBe('Overhead press');
+    expect(state(l).sessionDone).toEqual(['Bench press']);
+    l.advanceSession(); // last one done → wrap
+    expect(state(l).sessionDone).toEqual([]);
+    expect(state(l).exercise).toBe('Bench press');
+    expect(l.renderVals().sessionPosLabel).toBe('Session · 1 of 2');
+  });
+
+  test('finishing a lift that is not queued does not inflate the counter', () => {
+    const l = fresh({ session: ['Bench press'], exercise: 'Deadlift' });
+    l.advanceSession();
+    expect(state(l).sessionDone).toEqual([]);
+  });
+
+  test('the session strip survives a queue trimmed to one lift', () => {
+    const l = fresh({ session: ['Bench press'] });
+    expect(l.renderVals().hasSession).toBe(true);
+  });
+});
+
+describe('copy', () => {
+  test('one logged session is not "1 sessions logged"', () => {
+    const l = fresh();
+    expect(l.renderVals().sessionsLabel).toBe('0 sessions logged');
+    l.setState({ records: [{ at: 1, exercise: 'Bench press', mode: 'barbell', units: 'lb', sets: [{ w: 135, r: 5, planW: 135, planR: 5 }] }] as AppState['records'] });
+    expect(l.renderVals().sessionsLabel).toBe('1 session logged');
+  });
+});
