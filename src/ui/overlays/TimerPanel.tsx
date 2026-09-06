@@ -88,6 +88,7 @@ export function TimerPanel({ timer, onToggleExpand }: { timer: Timer; onToggleEx
   return (
     <Animated.View
       accessibilityViewIsModal={false}
+      {...anchorProps('rest-panel')}
       style={[
         { position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 10, backgroundColor: c('card2'), borderWidth: 1, borderColor: c('bd2'), borderRadius: 24, paddingVertical: 14, paddingHorizontal: 15 },
         Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.7, shadowRadius: 20, shadowOffset: { width: 0, height: -10 } }, android: { elevation: 12 }, default: {} }),

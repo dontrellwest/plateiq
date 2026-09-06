@@ -1,8 +1,9 @@
-// Guided tour overlay: tap-anywhere pause layer, welcome/closing card on a scrim, captions that
-// re-animate per keyframe, the paused pill, the fingertip (1.5 s press + expanding ring), the
-// imperative progress bar, and the Next / Skip buttons.
+// Guided tour overlay: a spotlight scrim with a rounded cutout over the control the current step is
+// about, tap-anywhere pause layer, welcome/closing card, a caption pinned beside the lit control
+// with a caret, the paused pill, the fingertip (1.5 s press + expanding ring), the step meter, and
+// the Next / Skip buttons.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { Platform, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,10 +11,21 @@ import type { useView } from '../../store/useStore';
 import { Num, Tap, Txt } from '../primitives';
 import { useTheme } from '../theme';
 import { bezier } from '../motion';
-import { tourUI } from './tourUI';
+import { Spotlight } from './Spotlight';
+import { clearSpot, getTourFocus, subscribeTourFocus, tourUI, tourView } from './tourUI';
 import { announce } from '../overlays/TimerPanel';
 
 type V = ReturnType<typeof useView>;
+
+// caption placement
+const CAP_MAX_W = 340;
+const CAP_MARGIN = 16;
+const CAP_GAP = 14;
+const CAP_MIN_H = 92;
+/** room kept clear at the bottom for the Next + Skip stack. */
+const BOTTOM_RESERVE = 118;
+const TOP_RESERVE = 8;
+const CARET = 12;
 
 /** Re-mounting on `tourKey` replays the slide-up (the prototype keys these nodes on tourKey). */
 function SlideIn({ children, ms, style, pointerEvents = 'none' }: { children: React.ReactNode; ms: number; style?: object; pointerEvents?: 'none' | 'box-none' }) {
@@ -57,36 +69,134 @@ function Fingertip() {
   );
 }
 
-function ProgressBar() {
+/** "STEP 3 OF 7" over a chunky segmented bar — the 3 pt hairline was invisible. */
+function StepMeter({ step, total, center }: { step: number; total: number; center?: boolean }) {
   const { c, t } = useTheme();
-  const insets = useSafeAreaInsets();
-  const st = useAnimatedStyle(() => ({ width: `${tourUI.progress.value * 100}%` as `${number}%` }));
+  if (!total || step < 1) return null;
+  const cells: React.ReactNode[] = [];
+  for (let i = 0; i < total; i++) {
+    cells.push(
+      <View
+        key={i}
+        style={{
+          flex: 1, height: 7, borderRadius: 4,
+          backgroundColor: i < step ? t.acc : c('bdMid'),
+          opacity: i < step - 1 ? 0.5 : 1,
+        }}
+      />,
+    );
+  }
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 7, left: 18, right: 18, height: 3, zIndex: 32, borderRadius: 99, backgroundColor: c('bdMid'), overflow: 'hidden' }}>
-      <Animated.View style={[{ height: '100%', borderRadius: 99, backgroundColor: t.acc }, st]} />
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel={'Step ' + step + ' of ' + total}
+      accessibilityValue={{ min: 0, max: total, now: step }}
+      style={{ marginBottom: 10, alignSelf: 'stretch', maxWidth: center ? 260 : undefined, alignItems: center ? 'center' : 'stretch' }}
+    >
+      <Txt size={10.5} weight={800} ls={0.8} color="accDeep" align={center ? 'center' : 'left'} style={{ marginBottom: 6 }}>
+        {'STEP ' + step + ' OF ' + total}
+      </Txt>
+      <View style={{ flexDirection: 'row', gap: 4, alignSelf: 'stretch' }}>{cells}</View>
     </View>
   );
 }
 
 export function TourOverlay({ v }: { v: V }) {
-  const { c, t } = useTheme();
+  const { c, t, dark, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const focus = useSyncExternalStore(subscribeTourFocus, getTourFocus, getTourFocus);
+
+  // the host clamps a partly-scrolled target into the visible band, and skips withTiming under
+  // reduced motion — it needs the viewport and that flag, and it must not import the store
+  useEffect(() => {
+    tourView.w = width; tourView.h = height;
+    tourView.top = insets.top; tourView.bottom = insets.bottom;
+    tourView.reduceMotion = reduceMotion;
+  }, [width, height, insets.top, insets.bottom, reduceMotion]);
+
+  // a welcome / closing card owns the whole screen — nothing is lit behind it
+  useEffect(() => { if (v.tourCardOn) clearSpot(); }, [v.tourCardOn]);
+  useEffect(() => () => clearSpot(), []);
+
   // iOS VoiceOver ignores live regions — each caption and card is announced as it appears
   useEffect(() => { if (v.tourCardOn) announce(v.tourCardTitle + '. ' + v.tourCardSub); }, [v.tourCardOn, v.tourCardTitle, v.tourCardSub]);
-  useEffect(() => { if (v.tourCap) announce(v.tourCap); }, [v.tourCap, v.tourKey]);
+  useEffect(() => {
+    if (!v.tourCap) return;
+    announce(v.tourSteps ? 'Step ' + v.tourStep + ' of ' + v.tourSteps + '. ' + v.tourCap : v.tourCap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v.tourCap, v.tourKey]);
+
+  // a spotlight scrim must darken in BOTH themes; the card scrim (v.tourScrim) is a light wash in
+  // light mode, which is right behind full-screen copy and wrong behind a lit control
+  const spotScrim = dark ? 'rgba(6,7,9,.74)' : 'rgba(16,18,22,.44)';
+
+  // ---- caption placement -----------------------------------------------------------------
+  const f = v.tourCardOn ? null : focus.frame;
+  const capW = Math.min(width - 2 * CAP_MARGIN, CAP_MAX_W);
+  let capLeft = CAP_MARGIN;
+  let capTop: number | undefined = insets.top + 51;
+  let capBottom: number | undefined;
+  let capMaxH: number | undefined;
+  let caretUp = false;
+  let caretX = 0;
+  if (f) {
+    const cx = f.x + f.w / 2;
+    capLeft = Math.max(CAP_MARGIN, Math.min(cx - capW / 2, width - CAP_MARGIN - capW));
+    const roomBelow = (height - insets.bottom - BOTTOM_RESERVE) - (f.y + f.h + CAP_GAP);
+    const roomAbove = (f.y - CAP_GAP) - (insets.top + TOP_RESERVE);
+    const below = roomBelow >= CAP_MIN_H || roomBelow >= roomAbove;
+    if (below) {
+      capTop = f.y + f.h + CAP_GAP; capBottom = undefined;
+      capMaxH = Math.max(CAP_MIN_H, roomBelow);
+      caretUp = true; // the card is below the target, so its caret sits on its top edge
+    } else {
+      capTop = undefined; capBottom = height - f.y + CAP_GAP;
+      capMaxH = Math.max(CAP_MIN_H, roomAbove);
+      caretUp = false;
+    }
+    caretX = Math.max(18, Math.min(cx - capLeft - CARET / 2, capW - 18 - CARET));
+  }
+
   return (
     <View accessibilityViewIsModal accessibilityLabel="Guided tour" pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 30 }}>
+      <Spotlight scrim={spotScrim} ring={t.acc} />
       <Tap label="Pause or resume the tour" onPress={v.tourTap} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 30 }} pressedStyle={{}} />
       {v.tourCardOn ? (
         <SlideIn key={'card' + v.tourKey} ms={350} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, zIndex: 31, backgroundColor: v.tourScrim, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 36 }}>
+          <StepMeter step={v.tourStep} total={v.tourSteps} center />
           <Num size={31} weight={800} ls={-0.8} lh={35} align="center" accessibilityRole="header">{v.tourCardTitle}</Num>
           <Txt size={14.5} lh={23} color="mut2" align="center" style={{ marginTop: 12, maxWidth: 300 }}>{v.tourCardSub}</Txt>
         </SlideIn>
       ) : null}
       {v.tourCapOn ? (
-        <SlideIn key={'cap' + v.tourKey} ms={300} style={[{ position: 'absolute', left: 16, right: 16, top: insets.top + 51, zIndex: 31, backgroundColor: c('card2'), borderWidth: 1, borderColor: c('bd2'), borderRadius: 18, paddingTop: 13, paddingHorizontal: 16, paddingBottom: 14 }, Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 18, shadowOffset: { width: 0, height: 14 } }, default: {} })]}>
-          <Txt size={10.5} weight={700} ls={0.7} color="accDeep" style={{ marginBottom: 4 }}>QUICK TOUR</Txt>
+        <SlideIn
+          key={'cap' + v.tourKey}
+          ms={300}
+          style={[
+            { position: 'absolute', left: capLeft, width: capW, top: capTop, bottom: capBottom, maxHeight: capMaxH, zIndex: 31, backgroundColor: c('card2'), borderWidth: 1, borderColor: c('bd2'), borderRadius: 18, paddingTop: 13, paddingHorizontal: 16, paddingBottom: 14 },
+            Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 18, shadowOffset: { width: 0, height: 14 } }, default: {} }),
+          ]}
+        >
+          {f ? (
+            <View
+              pointerEvents="none"
+              style={{
+                position: 'absolute', left: caretX, width: CARET, height: CARET,
+                top: caretUp ? -CARET / 2 : undefined,
+                bottom: caretUp ? undefined : -CARET / 2,
+                backgroundColor: c('card2'),
+                borderColor: c('bd2'),
+                borderTopWidth: caretUp ? 1 : 0,
+                borderLeftWidth: caretUp ? 1 : 0,
+                borderBottomWidth: caretUp ? 0 : 1,
+                borderRightWidth: caretUp ? 0 : 1,
+                transform: [{ rotate: '45deg' }],
+              }}
+            />
+          ) : null}
+          <StepMeter step={v.tourStep} total={v.tourSteps} />
           <Txt size={13.5} lh={20} color="tx3">{v.tourCap}</Txt>
         </SlideIn>
       ) : null}
@@ -98,7 +208,6 @@ export function TourOverlay({ v }: { v: V }) {
         </View>
       ) : null}
       <Fingertip />
-      <ProgressBar />
       <View style={{ position: 'absolute', bottom: insets.bottom + 12, left: 0, right: 0, zIndex: 32, alignItems: 'center', gap: 10 }} pointerEvents="box-none">
         {v.tourWaitOn ? (
           <SlideIn key={'next' + v.tourWaitLabel} ms={300} style={{}} pointerEvents="box-none">

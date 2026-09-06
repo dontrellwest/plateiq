@@ -170,6 +170,34 @@ a pocket and nothing in-app can fire at all. So the alert is now three layers:
 re-arms after a relaunch, clears alerts orphaned by a force-quit, coalesces the re-entrant burst
 that `syncClock` causes, and never lets the guided tour's demo rest reach the lock screen.
 
+## The guided tour, rebuilt as a spotlight (2026-09-05, after the first gym session)
+
+The owner's report: during a step you could not tell what you were meant to be looking at, and the
+progress bar was a hairline he only knew about because he designed it.
+
+- **Everything dims except the control being explained.** `src/ui/tour/Spotlight.tsx` draws one
+  full-screen `<Path>` whose `d` is the screen rectangle followed by a rounded rectangle, filled
+  with `fillRule="evenodd"` so the inner shape is a hole. One draw call, exact rounded corners, and
+  the geometry lives in Reanimated shared values so moving between steps animates on the UI thread
+  without re-rendering React. An accent ring and a soft halo trace the hole.
+- **The explanation is attached to the control.** The caption sits directly above or below the lit
+  frame, whichever has room, with a caret pointing at it, and it never runs off screen.
+- **"STEP 3 OF 7"** over a chunky segmented bar replaces the 3 pt hairline, in the caption and on
+  the welcome and closing cards. The count is derived from the timeline's own stop frames, so it
+  needs no new state.
+- **Tighter timing.** The tour is 20 s of animation instead of 30 s. Same nineteen frames, same
+  order, same words, same reducers: only the keyframe times changed.
+- Targets are re-measured while an animated scroll settles, and anchors that mount with their own
+  keyframe (the rest panel, the log sheet, the History screen) get four attempts before the step
+  falls back to a plain dark screen. A target taller than the screen is trimmed to the visible band.
+
+`TourHost.focus` is optional, so the headless fuzz harness and the three-method hosts in the tests
+keep working untouched.
+
+Note for future test work: the tour test's manual frame stepper must pause the tour while it walks,
+or the real animation loop consumes frames at the same time and the walk silently skips one. That
+only surfaced once the first keyframe moved inside the window the stepper advances.
+
 ## Known, deliberately not changed
 
 - lb ↔ kg round trips round to the plate grid, so 135 lb → 60 kg → 130 lb. Exact restoration would
@@ -180,6 +208,8 @@ that `syncClock` causes, and never lets the guided tour's demo rest reach the lo
   adding one means a notification permission prompt (the app currently asks for none).
 - History demo strings shown during the tour are lb-only.
 - The app icon and Android assets are still the Expo template defaults.
+- During the rest-timer chapter of the tour, the Next and Skip buttons sit over the lit rest panel,
+  because both are anchored to the bottom of the screen. Legible, but crowded.
 - A typed target that is off the rounding grid is shown as typed while the card plans the rounded
   value (type 226.3 with a 0.25 step and the ladder builds 226.5). The steppers always land on the
   grid; only typing can leave the two a rounding step apart, and nothing says so.

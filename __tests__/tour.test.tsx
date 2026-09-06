@@ -16,9 +16,16 @@ const press = (name: RegExp | string) => fireEvent.press(screen.getByRole('butto
 const pick = (name: RegExp | string) => fireEvent.press(screen.getByRole('radio', { name }));
 const bump = async () => act(async () => { useStore.setState({}); });
 
-/** Advance the timeline to the next stop exactly as the rAF loop would. */
+/**
+ * Advance the timeline to the next stop exactly as the rAF loop would.
+ *
+ * The real rAF loop is also running here (jest's fake timers drive it), and it consumes frames on
+ * its own clock. Pausing the tour for the duration makes this stepper the ONLY driver, so a frame
+ * can never be consumed twice — otherwise the walk silently skips one.
+ */
 async function stepToStop() {
   await act(async () => {
+    logic.setState({ tourPaused: true });
     while (logic._tourIdx < logic._tourFrames.length && useStore.getState().tour === 'play' && !useStore.getState().tourWait) {
       const f = logic._tourFrames[logic._tourIdx];
       if (f.cap !== undefined || f.card !== undefined) logic.setState({ tourCap: f.cap || '', tourCard: f.card || null, tourKey: logic._tourIdx });
@@ -28,6 +35,7 @@ async function stepToStop() {
       if (f.stop) { logic._tourT = f.t; logic.setState({ tourWait: f.stop }); break; }
     }
     if (logic._tourIdx >= logic._tourFrames.length && !useStore.getState().tourWait) logic.endTour(true);
+    if (useStore.getState().tour === 'play') logic.setState({ tourPaused: false });
   });
 }
 

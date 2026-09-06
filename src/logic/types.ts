@@ -125,4 +125,10 @@ export interface TourHost {
   press(anchor: string): boolean;
   scrollTo(fraction: number): void;
   setProgress(fraction: number): void;
+  /**
+   * Light one registered anchor through the spotlight cutout; null darkens the whole screen.
+   * Optional: the fuzz harness runs with no host at all and the regression tests build
+   * three-method hosts, so every caller guards with `this.tourHost && this.tourHost.focus`.
+   */
+  focus?(anchor: string | null, radius?: number): void;
 }

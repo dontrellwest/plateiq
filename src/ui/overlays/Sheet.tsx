@@ -4,7 +4,7 @@ import React from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Num, Tap, Txt, useA11yFocus } from '../primitives';
+import { Num, Tap, Txt, anchorProps, useA11yFocus } from '../primitives';
 import { MOTION, useTheme } from '../theme';
 import { useSlideUp } from '../motion';
 
@@ -25,9 +25,11 @@ export interface SheetProps {
   maxHeight?: number;
   /** false while the guided tour plays — the tour overlay is the modal layer then */
   modal?: boolean;
+  /** register the sheet as a guided-tour spotlight target */
+  anchor?: string;
 }
 
-export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxHeight, modal = true }: SheetProps) {
+export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxHeight, modal = true, anchor }: SheetProps) {
   const { c, reduceMotion } = useTheme();
   const insets = useSafeAreaInsets();
   const slide = useSlideUp(MOTION.sheet, reduceMotion);
@@ -50,6 +52,7 @@ export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxH
     <Animated.View
       accessibilityViewIsModal={modal}
       accessibilityLabel={a11yLabel}
+      {...anchorProps(anchor)}
       style={[
         { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: c('card'), borderTopWidth: 1, borderColor: c('bd2'), borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 10, paddingBottom: insets.bottom + 6, maxHeight },
         Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.8, shadowRadius: 30, shadowOffset: { width: 0, height: -20 } }, android: { elevation: 16 }, default: {} }),

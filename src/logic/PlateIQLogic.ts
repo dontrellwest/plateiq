@@ -623,30 +623,39 @@ export class PlateIQLogic {
     this._tourTapFn = fn || null;
     this._tourTapTo = setTimeout(() => { this._tourTapFn = null; if (this.state.tour === 'play' && fn) fn(); }, 450);
   }
+  /** 1-based chapter the tour is in: the `stop` frames the timeline has consumed so far. */
+  tourStepNow(): number {
+    let n = 0;
+    const f = this._tourFrames;
+    for (let i = 0; i < this._tourIdx && i < f.length; i++) if (f[i].stop) n++;
+    return n;
+  }
   tourScript(): TourFrame[] {
     const go = (p: StatePatch) => this.setState(p);
     const scroll = (frac: number) => { if (this.tourHost) this.tourHost.scrollTo(frac); };
     const tap = (sel: string, fn?: () => void) => this.tourTap(sel, fn);
+    // light one control through the spotlight cutout; a headless host (the harness) has no `focus`
+    const spot = (sel: string | null) => { if (this.tourHost && this.tourHost.focus) this.tourHost.focus(sel); };
     return [
       { t: 0, card: { title: 'Welcome to PlateIQ', sub: 'It works out your plates, warm‑ups, and rest — so you can just lift. Take a quick look around — you set the pace.' }, stop: 'Pick a target weight' },
-      { t: 0.8, cap: 'Pick a lift and a target — PlateIQ works out exactly what goes on the bar.', run: () => scroll(0) },
-      { t: 2.4, run: () => tap('inc-working', () => go({ working: this.state.working + 2 * this.step() })) },
-      { t: 4.2, run: () => tap('inc-working', () => go({ working: this.state.working + 2 * this.step() })) },
-      { t: 5.8, stop: 'The warm‑up ladder' },
-      { t: 6.4, cap: 'Your warm‑up ladder builds itself, with the plates for every step.', run: () => scroll(0.42) },
-      { t: 9.6, stop: 'The rest timer' },
-      { t: 10.2, run: () => scroll(0.26) },
-      { t: 10.8, cap: 'Tap a set when it’s done — PlateIQ times your rest and shows what to strip or add.', run: () => tap('set-1', () => this.tapSet(1)) },
-      { t: 15.0, stop: 'Logging your sets' },
-      { t: 15.6, cap: 'Done logs the set for you — and it’s two taps to record what actually happened.', run: () => tap('rest-cta', () => this.finishRest()) },
-      { t: 17.8, run: () => tap('log-1', () => go({ logIdx: 1, sheet: 'log' })) },
-      { t: 20.8, stop: 'Dumbbells & landmines' },
-      { t: 21.4, cap: 'Dumbbells and landmines too — same brain, different rig.', run: () => { go({ sheet: false, logIdx: null, undo: null }); scroll(0); } },
-      { t: 22.2, run: () => tap('mode-landmine', () => go({ mode: 'landmine' })) },
-      { t: 25.4, stop: 'History & 1RM trends' },
-      { t: 26.0, cap: 'Every session feeds your history and your estimated‑1RM trend.', run: () => { go({ mode: 'barbell' }); tap('nav-history', () => { go({ screen: 'history' }); scroll(0); }); } },
-      { t: 29.8, card: { title: 'That’s the tour!', sub: 'Now let’s set things up for your gym — it takes about 20 seconds.' }, stop: 'Start setup' },
-      { t: 30.4 },
+      { t: 0.25, cap: 'Pick a lift and a target — PlateIQ works out exactly what goes on the bar.', run: () => { scroll(0); spot('target-card'); } },
+      { t: 1.30, run: () => tap('inc-working', () => go({ working: this.state.working + 2 * this.step() })) },
+      { t: 2.30, run: () => tap('inc-working', () => go({ working: this.state.working + 2 * this.step() })) },
+      { t: 3.60, stop: 'The warm‑up ladder' },
+      { t: 3.85, cap: 'Your warm‑up ladder builds itself, with the plates for every step.', run: () => { scroll(0.42); spot('warmup-list'); } },
+      { t: 6.85, stop: 'The rest timer' },
+      { t: 7.05, run: () => scroll(0.26) },
+      { t: 7.75, cap: 'Tap a set when it’s done — PlateIQ times your rest and shows what to strip or add.', run: () => { spot('set-1'); tap('set-1', () => { this.tapSet(1); spot('rest-panel'); }); } },
+      { t: 10.40, stop: 'Logging your sets' },
+      { t: 10.65, cap: 'Done logs the set for you — and it’s two taps to record what actually happened.', run: () => { spot('rest-cta'); tap('rest-cta', () => this.finishRest()); } },
+      { t: 12.20, run: () => { spot('log-1'); tap('log-1', () => { go({ logIdx: 1, sheet: 'log' }); spot('log-sheet'); }); } },
+      { t: 14.30, stop: 'Dumbbells & landmines' },
+      { t: 14.55, cap: 'Dumbbells and landmines too — same brain, different rig.', run: () => { go({ sheet: false, logIdx: null, undo: null }); scroll(0); spot('mode-landmine'); } },
+      { t: 15.35, run: () => tap('mode-landmine', () => { go({ mode: 'landmine' }); spot('hero'); }) },
+      { t: 17.30, stop: 'History & 1RM trends' },
+      { t: 17.55, cap: 'Every session feeds your history and your estimated‑1RM trend.', run: () => { go({ mode: 'barbell' }); spot('nav-history'); tap('nav-history', () => { go({ screen: 'history' }); scroll(0); spot('history-stats'); }); } },
+      { t: 19.80, card: { title: 'That’s the tour!', sub: 'Now let’s set things up for your gym — it takes about 20 seconds.' }, stop: 'Start setup' },
+      { t: 20.10 },
     ];
   }
   startTour(from: 'onboard' | 'settings') {
@@ -1509,6 +1518,11 @@ export class PlateIQLogic {
       tourCardTitle: st.tourCard ? st.tourCard.title : '',
       tourCardSub: st.tourCard ? st.tourCard.sub : '',
       tourKey: st.tourKey,
+      // "Step 3 of 7", derived from the frames the timeline has consumed, so it needs no state of
+      // its own. It only changes on a `stop` frame, and consuming one always setStates tourWait,
+      // which invalidates useStore's view cache, so it is never stale.
+      tourStep: this.tourStepNow(),
+      tourSteps: this._tourFrames.reduce((n, f) => n + (f.stop ? 1 : 0), 0),
       tourPausedOn: st.tourPaused && !st.tourWait,
       tourWaitOn: !!st.tourWait,
       tourWaitLabel: st.tourWait || '',

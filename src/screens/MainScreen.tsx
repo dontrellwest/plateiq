@@ -366,7 +366,8 @@ export function MainScreen() {
             </View>
           )}
         </Card>
-        <Card style={{ flex: 1 }} pad={[12, 13]}>
+        <View {...anchorProps('target-card')} style={{ flex: 1 }}>
+        <Card pad={[12, 13]}>
           <Txt size={11.5} weight={500} color="mut3">{v.targetLabel}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
             <Stepper glyph="–" label={'Lower ' + v.targetLabel.toLowerCase()} onPress={v.decWorking} />
@@ -377,6 +378,7 @@ export function MainScreen() {
             <Stepper glyph="+" label={'Raise ' + v.targetLabel.toLowerCase()} onPress={v.incWorking} anchor="inc-working" />
           </View>
         </Card>
+        </View>
       </View>
 
       {/* reverse reader + 1RM */}
@@ -424,7 +426,9 @@ export function MainScreen() {
 
       {/* hero + scheme */}
       <View style={{ paddingHorizontal: PAD, paddingBottom: 18 }}>
-        <HeroCard v={v} />
+        <View {...anchorProps('hero')}>
+          <HeroCard v={v} />
+        </View>
         <Tap label={v.schemeLine + '. Change the set scheme'} onPress={v.openSchemeSheet} style={{ minHeight: 44, marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 4 }} pressedStyle={{ opacity: 0.8 }}>
           <Txt size={12.5} weight={500} color="mut3" numberOfLines={1} style={{ flexShrink: 1 }}>{v.schemeLine}</Txt>
           <View style={{ minHeight: 32, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 99, backgroundColor: c('ctl2'), borderWidth: 1, borderColor: c('bd2'), justifyContent: 'center' }}>
@@ -440,7 +444,7 @@ export function MainScreen() {
           <Txt size={12.5} weight={500} color="mut2">Plate rack ›</Txt>
         </Tap>
       </View>
-      <View style={{ paddingHorizontal: PAD, gap: 10 }}>
+      <View {...anchorProps('warmup-list')} style={{ paddingHorizontal: PAD, gap: 10 }}>
         {cards.map((s) => (
           <React.Fragment key={s.idx}>
             {s.groupHead ? (

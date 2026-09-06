@@ -657,3 +657,62 @@ describe('rest-end alert', () => {
     } finally { useStore.setState({ tour: false }); stop(); }
   });
 });
+
+describe('guided tour spotlight', () => {
+  const { tourHost, getTourFocus, clampSpot, tourView, _resetTourFocusForTests } = require('../src/ui/tour/tourUI');
+
+  beforeEach(() => {
+    _resetTourFocusForTests();
+    tourView.w = 402; tourView.h = 874; tourView.top = 59; tourView.bottom = 34; tourView.reduceMotion = false;
+  });
+
+  test('the tour says which step it is on, and the count matches the chapters', () => {
+    const l = fresh();
+    l.tourHost = { press: () => false, scrollTo: () => undefined, setProgress: () => undefined };
+    expect(l.renderVals().tourSteps).toBe(0); // nothing before the first tour
+    l.startTour('settings');
+    const total = l.renderVals().tourSteps;
+    expect(total).toBe(7);
+    expect(l.renderVals().tourStep).toBe(1); // the welcome card is step 1
+    // walking the frames advances the counter exactly once per chapter
+    const seen: number[] = [];
+    const frames = (l as unknown as { _tourFrames: Array<{ stop?: string; run?: () => void }> })._tourFrames;
+    const idx = () => (l as unknown as { _tourIdx: number })._tourIdx;
+    while (idx() < frames.length) {
+      const f = frames[idx()];
+      if (f.run) f.run();
+      (l as unknown as { _tourIdx: number })._tourIdx++;
+      if (f.stop) seen.push(l.renderVals().tourStep);
+    }
+    expect(seen).toEqual([2, 3, 4, 5, 6, 7]);
+    l.endTour(true);
+  });
+
+  test('a target that never mounts leaves the screen plainly dark rather than lighting nothing', () => {
+    jest.useFakeTimers();
+    try {
+      tourHost.focus('not-a-real-anchor');
+      jest.advanceTimersByTime(600);
+      expect(getTourFocus().frame).toBeNull();
+    } finally { jest.useRealTimers(); }
+  });
+
+  test('a target taller than the screen is trimmed to the part you can actually see', () => {
+    const tall = clampSpot({ x: 18, y: -200, w: 366, h: 1400 }, tourView);
+    expect(tall).not.toBeNull();
+    expect(tall.y).toBe(tourView.top + 4); // never under the status bar
+    expect(tall.y + tall.h).toBe(tourView.h - tourView.bottom - 4); // never under the home indicator
+    expect(tall.x).toBeGreaterThanOrEqual(4);
+    // and a target scrolled fully off screen lights nothing at all
+    expect(clampSpot({ x: 18, y: 2000, w: 366, h: 60 }, tourView)).toBeNull();
+  });
+
+  test('the whole tour is shorter than it was, and still stops on every chapter', () => {
+    const l = fresh();
+    const frames = l.tourScript();
+    expect(frames.length).toBe(19);
+    expect(frames[frames.length - 1].t).toBeLessThan(21); // was 30.4 s
+    expect(frames.filter((f) => f.stop).length).toBe(7);
+    for (let i = 1; i < frames.length; i++) expect(frames[i].t).toBeGreaterThan(frames[i - 1].t);
+  });
+});

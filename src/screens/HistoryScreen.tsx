@@ -6,7 +6,7 @@ import React from 'react';
 import { ScrollView, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import type { useView } from '../store/useStore';
-import { Badge, Card, IconButton, Num, Tap, Txt } from '../ui/primitives';
+import { Badge, Card, IconButton, Num, Tap, Txt, anchorProps } from '../ui/primitives';
 import { SCREEN_PAD, useTheme } from '../ui/theme';
 
 type V = ReturnType<typeof useView>;
@@ -64,7 +64,7 @@ export function HistoryScreen({ v }: { v: V }) {
         </View>
       ) : null}
 
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+      <View {...anchorProps('history-stats')} style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
         <Stat value={v.sessionsStat} label="sessions" />
         <Stat value={v.volMovedLabel.split(' ')[0]} label={v.unit + ' moved'} />
         <Stat value={v.prCount} label="new PRs" accent />

@@ -26,6 +26,7 @@ export function LogSheet({ v }: { v: V }) {
     <Sheet
       title="What you actually did"
       a11yLabel="Edit logged set"
+      anchor="log-sheet"
       onClose={ls.close}
       modal={!v.tourOn}
       intro={ls.title + ' · ' + ls.planLine + '. Sets rarely go exactly to plan — record the real thing and the trend stays honest.'}
