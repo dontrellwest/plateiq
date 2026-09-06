@@ -87,7 +87,7 @@ export function TourOverlay({ v }: { v: V }) {
       {v.tourCapOn ? (
         <SlideIn key={'cap' + v.tourKey} ms={300} style={[{ position: 'absolute', left: 16, right: 16, top: insets.top + 51, zIndex: 31, backgroundColor: c('card2'), borderWidth: 1, borderColor: c('bd2'), borderRadius: 18, paddingTop: 13, paddingHorizontal: 16, paddingBottom: 14 }, Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 18, shadowOffset: { width: 0, height: 14 } }, default: {} })]}>
           <Txt size={10.5} weight={700} ls={0.7} color="accDeep" style={{ marginBottom: 4 }}>QUICK TOUR</Txt>
-          <Txt size={13.5} lh={20} color="tx3" accessibilityLiveRegion="polite">{v.tourCap}</Txt>
+          <Txt size={13.5} lh={20} color="tx3">{v.tourCap}</Txt>
         </SlideIn>
       ) : null}
       {v.tourPausedOn ? (

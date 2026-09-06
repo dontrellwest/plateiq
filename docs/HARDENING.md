@@ -94,6 +94,47 @@ touched, and none of the view-model fields the differential test compares (`pivo
 - The `UIViewControllerBasedStatusBarAppearance` override was removed (it made the per-theme status
   bar style a no-op in native builds); `ITSAppUsesNonExemptEncryption` is declared `false`.
 
+## Second pass — reviewing the fixes (same day)
+
+A three-lens adversarial review of the change set above found real regressions in it. Those are
+fixed too:
+
+- **Steppers.** Dumbbells were snapped to a finer grid than the plan uses, so the field and the
+  card disagreed on every other press; the lowest reachable target was not on the grid either
+  (a 33 lb technique bar stopped at 38 while the card planned 40); and from an off-grid target a
+  single press could jump two grid steps (70.25 kg to 80 with a 2.5 grid). A press now moves one
+  plate step, lands on the plan's own grid, and stops on the grid one step above the implement.
+- **Landmine effective weights** were briefly moved onto the user's rounding step. That was wrong:
+  the solver reports effective weight on a fixed half-pound step, so the reverse reader, the floor
+  and the stepper use that same step and the card can always show the number back.
+- **The keyboard Done bar** was bound to a single input id, which meant only the bar field ever
+  showed it. Each field now has its own.
+- **Saved data**: one unreadable history record used to drop the whole history; rows are filtered
+  individually now. Settings that must be one of a fixed set (units, mode, scheme, rounding, theme,
+  anchor, collars) are checked against that set, and the nullable keys are checked per key, so a
+  timer end time of `{}` can no longer produce a `NaN:NaN` countdown.
+- **Unreadable saved data** settled the app only after the four-second timeout when the failure
+  arrived after startup; it settles immediately now.
+- **A pending undo** is dropped when the ladder is rebuilt around another implement, another unit,
+  or a new warm-up rung, since its set indexes would no longer mean the same thing. Finishing an
+  exercise keeps its undo, so a session advance can still be taken back.
+- **The guided tour** could run a fingertip action out of order when the second anchor was off
+  screen.
+- **Number fields** are capped at the same 2x text scale as the rest of the type.
+- Smaller: a sheet whose label matched its title was read twice by VoiceOver; the library row's
+  press feedback did not cover the whole row; the undo toast and tour captions kept live regions
+  that made Android speak them twice.
+- **The differential test** silently skipped when the prototype folder is absent, which is the case
+  on this machine. It now warns loudly and fails outright under `npm run test:full` or
+  `PLATEIQ_REQUIRE_DIFF=1`, so the locked-solver check can never be assumed to have run.
+
+Tests added for the review round: dumbbell and floor grid cases, off-grid single-step, the three
+anchors' floors, exact landmine literals, every ladder shape for card-tap completion, enum and
+nullable validation, per-record filtering, the late-haptic guard, change-detected storage writes,
+undetermined appearance, immediate settle on a late read failure, the paused-before-start resume,
+and composited contrast for the plate chips and warning badges on all eight accents. The randomised
+suite now drives the steppers and typed input as well.
+
 ## Known, deliberately not changed
 
 - lb ↔ kg round trips round to the plate grid, so 135 lb → 60 kg → 130 lb. Exact restoration would
@@ -104,3 +145,7 @@ touched, and none of the view-model fields the differential test compares (`pivo
   adding one means a notification permission prompt (the app currently asks for none).
 - History demo strings shown during the tour are lb-only.
 - The app icon and Android assets are still the Expo template defaults.
+- The solver keeps two quirks the differential test locks in: with "fewest plate changes" on in
+  home-gym mode it can report a miss where an exact combination exists, and the offered
+  alternatives are not always the nearest loadable weight. Changing either would change the ported
+  solver's output.

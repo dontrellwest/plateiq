@@ -2,9 +2,11 @@
 // a confirmed defect found by the code audit or the simulator gauntlet.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Appearance } from 'react-native';
 import { PlateIQLogic, MemoryHost, INITIAL_STATE } from '../src/logic/PlateIQLogic';
 import { BAR_PROFILES, ANCHOR_COEF } from '../src/logic/constants';
 import type { AppState } from '../src/logic/types';
+import { haptics } from '../src/platform/haptics';
 import {
   STORAGE_KEY, bootStore, logic as storeLogic, useStore, sanitizePersisted, isHydrationSettled, _resetHydrationForTests,
 } from '../src/store/useStore';
@@ -37,13 +39,16 @@ describe('typed weights', () => {
     expect(state(l).barDraft).toBe('45');
   });
 
-  test('a typed landmine target below the bare bar is floored at the bar seen through the anchor', () => {
-    const l = fresh({ mode: 'landmine', anchorType: 'sleeve', lmTarget: 90 });
-    l.setState({ workDraft: '10' }); l.commitWorking();
-    const coef = ANCHOR_COEF.sleeve;
-    const floor = Math.round(l.baseTotal() * coef / 0.5) * 0.5;
-    expect(state(l).lmTarget).toBe(floor);
-  });
+  test.each([['sleeve', 31.5], ['hinge', 34], ['rack', 36]] as const)(
+    'a typed landmine target below the bare bar is floored at the 45 lb bar through the %s anchor',
+    (anchorType, floor) => {
+      const l = fresh({ mode: 'landmine', anchorType, lmTarget: 90 });
+      // the bare bar through the anchor, on the solver's own 0.5 lb effective grid
+      expect(Math.round(45 * ANCHOR_COEF[anchorType] / 0.5) * 0.5).toBe(floor);
+      l.setState({ workDraft: '10' }); l.commitWorking();
+      expect(state(l).lmTarget).toBe(floor);
+    },
+  );
 });
 
 describe('steppers', () => {
@@ -61,7 +66,7 @@ describe('steppers', () => {
     db.setState({ dbTotal: 15 }); db.renderVals().decWorking(); expect(state(db).dbTotal).toBe(10);
   });
 
-  test('a press lands on the rounding grid, so the field and the card agree (kg, roundTo 0.5 and 2.5)', () => {
+  test('a press lands on the rounding grid, so the field and the card agree', () => {
     const l = fresh({ units: 'kg', bar: 20, working: 100, roundTo: 0.5 });
     l.renderVals().incWorking();
     expect(state(l).working).toBe(103);
@@ -73,16 +78,44 @@ describe('steppers', () => {
     c.renderVals().decWorking(); expect(state(c).working).toBe(100);
     const lb = fresh({ units: 'lb', bar: 45, working: 225, roundTo: 0.25 });
     lb.renderVals().incWorking(); expect(state(lb).working).toBe(230);
+    // dumbbells round to 2x roundTo as well (roundTarget treats them like a barbell)
+    const d = fresh({ units: 'kg', mode: 'dumbbell', dbHandle: 5, dbTotal: 20, roundTo: 0.5 });
+    d.renderVals().incWorking();
+    expect(state(d).dbTotal).toBe(23);
+    expect(d.plan().work.want).toBe(23);
+    d.renderVals().decWorking(); expect(state(d).dbTotal).toBe(20);
+  });
+
+  test('one press moves one plate step, never two grid steps, from an off-grid target', () => {
+    const l = fresh({ units: 'kg', bar: 20, working: 70.25, roundTo: 2.5 });
+    l.renderVals().incWorking();
+    expect(state(l).working).toBe(75);
+    const b = fresh({ units: 'kg', bar: 20, working: 156, roundTo: 2.5 });
+    b.renderVals().incWorking();
+    expect(state(b).working).toBe(160);
+  });
+
+  test('the lowest target the steppers reach is on the grid, so the field matches the card there too', () => {
+    const kg = fresh({ units: 'kg', bar: 20, working: 100, roundTo: 2.5 });
+    for (let i = 0; i < 40; i++) kg.renderVals().decWorking();
+    expect(state(kg).working).toBe(25);
+    expect(kg.plan().work.want).toBe(25);
+    // a 33 lb technique bar with a 5 lb grid: 38 is off the grid, 40 is the floor
+    const lb = fresh({ units: 'lb', bar: 33, working: 45, roundTo: 2.5 });
+    lb.renderVals().decWorking(); expect(state(lb).working).toBe(40);
+    lb.renderVals().decWorking(); expect(state(lb).working).toBe(40);
+    expect(lb.plan().work.want).toBe(40);
   });
 
   test('a landmine press moves one plate step on the loaded side, not one rounding step', () => {
     const l = fresh({ mode: 'landmine', anchorType: 'sleeve', lmTarget: 135, roundTo: 0.25 });
     l.renderVals().incWorking();
-    const coef = ANCHOR_COEF.sleeve;
-    expect(state(l).lmTarget - 135).toBeGreaterThanOrEqual(Math.round(5 * coef / 0.5) * 0.5 - 0.5);
+    // 135 effective is 195 lb loaded on the 5 lb grid; one more plate step is 200 loaded = 140 effective
+    expect(state(l).lmTarget).toBe(140);
     let presses = 0;
     while (state(l).lmTarget > 100 && presses < 40) { l.renderVals().decWorking(); presses++; }
-    expect(presses).toBeLessThan(15);
+    // about 3.5 effective lb per press, not the 0.5 the rounding step would give
+    expect(presses).toBe(12);
   });
 
   test('picking a bar by weight names its profile and floors the target one step above it', () => {
@@ -99,6 +132,33 @@ describe('steppers', () => {
   });
 });
 
+describe('undo', () => {
+  test('a pending undo is dropped when the ladder is rebuilt around another implement or unit', () => {
+    const l = fresh();
+    l.tapSet(0); l.finishRest();
+    expect(state(l).undo).not.toBeNull();
+    l.setMode('dumbbell');
+    expect(state(l).undo).toBeNull();
+    const u = fresh();
+    u.tapSet(0); u.finishRest();
+    u.setUnits('kg');
+    expect(state(u).undo).toBeNull();
+    const a = fresh();
+    a.tapSet(0); a.finishRest();
+    a.addSet();
+    expect(state(a).undo).toBeNull();
+  });
+
+  test('finishing an exercise keeps its undo, so the session advance can be taken back', () => {
+    const l = fresh({ session: ['Bench press', 'Overhead press'], exercise: 'Bench press' });
+    l.advanceSession();
+    expect(state(l).exercise).toBe('Overhead press');
+    expect(state(l).undo).not.toBeNull();
+    l.applyUndo();
+    expect(state(l).exercise).toBe('Bench press');
+  });
+});
+
 describe('history', () => {
   test('a record with no sets is skipped instead of crashing the History screen', () => {
     const l = fresh({ screen: 'history', records: [
@@ -107,7 +167,7 @@ describe('history', () => {
     ] as AppState['records'] });
     expect(() => l.renderVals()).not.toThrow();
     // and storage validation drops a record that has no sets array at all
-    expect(sanitizePersisted({ records: [{ id: 'x', at: 1, exercise: 'Squat' }] })).toEqual({});
+    expect(sanitizePersisted({ records: [{ id: 'x', at: 1, exercise: 'Squat' }] })).toEqual({ records: [] });
   });
 });
 
@@ -118,12 +178,12 @@ describe('reverse reader', () => {
     const v = l.renderVals();
     v.revButtons.find((b) => b.w === 45)!.add();
     const v2 = l.renderVals();
-    const loaded = v2.revTotal;
-    const coef = ANCHOR_COEF.sleeve;
-    const eff = Math.round(loaded * coef / 0.5) * 0.5;
-    expect(v2.revApplyLabel).toContain('effective');
+    expect(v2.revTotal).toBe(90); // 45 lb bar + one 45 on the far sleeve
+    expect(v2.revApplyLabel).toBe('Use 63 lb effective as target'); // 90 x 0.7
     v2.revApply();
-    expect(state(l).lmTarget).toBe(eff);
+    expect(state(l).lmTarget).toBe(63);
+    // the number applied is on the same grid the card plans with
+    expect(l.plan().work.want).toBe(63);
     // the ladder now prescribes at most the plates that were on the bar, never almost double
     const work = l.plan().work;
     expect(work.side.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(45 + 0.001);
@@ -140,14 +200,26 @@ describe('reverse reader', () => {
 });
 
 describe('logging', () => {
-  test('logging the last set from its card finishes the exercise like Done does', () => {
-    const l = fresh();
-    const last = l.plan().sets.length + l.plan().after.length;
+  test.each([
+    ['default ladder', {}],
+    ['back-off sets after the top set', { scheme: 'backoff' as const }],
+    ['no warm-ups', { warmups: [] }],
+    ['drop sets, no warm-ups', { scheme: 'drop' as const, warmups: [] }],
+  ])('logging the last set from its card finishes the exercise like Done does (%s)', (_name, patch) => {
+    const l = fresh(patch as Partial<AppState>);
+    const p = l.plan();
+    const last = p.sets.length + p.after.length;
     l.tapSet(last);
     expect(state(l).activeIdx).toBe(last);
     l.tapSet(last);
     expect(state(l).activeIdx).toBeNull();
     expect(state(l).allDone).toBe(true);
+    // and an earlier set must NOT claim the exercise is finished
+    if (last > 0) {
+      const m = fresh(patch as Partial<AppState>);
+      m.tapSet(0); m.tapSet(0);
+      expect(state(m).allDone).toBe(false);
+    }
   });
 
   test('undo of Done with auto-start off restores the paused panel, not a running one', () => {
@@ -188,6 +260,18 @@ describe('guided tour', () => {
     expect(calls).toEqual(['a', 'b']);
   });
 
+  test('a tap on an anchor that is not on screen still runs after the one already armed', () => {
+    const l = fresh();
+    let onScreen = true;
+    l.tourHost = { press: () => onScreen, scrollTo: () => undefined, setProgress: () => undefined };
+    l.setState({ tour: 'play' });
+    const calls: string[] = [];
+    l.tourTap('shown', () => calls.push('first'));
+    onScreen = false;
+    l.tourTap('missing', () => calls.push('second'));
+    expect(calls).toEqual(['first', 'second']);
+  });
+
   test('the demo runs on the default ladder in the user\'s units and puts everything back', () => {
     const l = fresh({ units: 'kg', bar: 20, working: 60, mode: 'dumbbell', dbHandle: 5, barDraft: '5', warmups: [], scheme: 'straight' });
     l.tourHost = { press: () => false, scrollTo: () => undefined, setProgress: () => undefined };
@@ -213,13 +297,101 @@ describe('guided tour', () => {
 });
 
 describe('store binding', () => {
-  beforeEach(async () => { _resetHydrationForTests(); await AsyncStorage.clear(); });
+  beforeEach(async () => {
+    _resetHydrationForTests();
+    useStore.setState({ ...INITIAL_STATE, onboard: false, tour: false }, true);
+    await drain();
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  });
+
+  /** Let the persist middleware's in-flight writes land before touching storage ourselves. */
+  const drain = () => new Promise((r) => setTimeout(r, 20));
+  /** Write a saved state and make sure it is still there — a late persist write can overwrite it. */
+  async function seedStorage(saved: Record<string, unknown>) {
+    const raw = JSON.stringify({ state: saved, version: 1 });
+    for (let i = 0; i < 10; i++) {
+      await AsyncStorage.setItem(STORAGE_KEY, raw);
+      await drain();
+      if (await AsyncStorage.getItem(STORAGE_KEY) === raw) return;
+    }
+    throw new Error('storage kept being overwritten');
+  }
+
+  const rec = { id: 'r1', at: 1_700_000_000_000, exercise: 'Bench press', mode: 'barbell', units: 'lb', sets: [{ label: 'Set 1', w: 225, r: 5, planW: 225, planR: 5 }] };
 
   test('persisted values of the wrong shape fall back to defaults instead of reaching the solver', () => {
-    const out = sanitizePersisted({ working: '225', units: 'stone', records: 'x', session: null, warmups: [{ id: 1 }], bar: 55, doneIdx: [1, 'x'], onboard: true, tourSnap: null });
-    expect(out).toEqual({ units: 'stone', bar: 55, onboard: true, tourSnap: null });
+    const out = sanitizePersisted({ working: '225', records: 'x', session: null, warmups: [{ id: 1 }], bar: 55, doneIdx: [1, 'x'], onboard: true, tourSnap: null });
+    expect(out).toEqual({ bar: 55, doneIdx: [1], warmups: [], onboard: true, tourSnap: null });
     expect(sanitizePersisted(null)).toEqual({});
     expect(sanitizePersisted('{}')).toEqual({});
+  });
+
+  test('a value outside a fixed set of choices is rejected, not carried in', () => {
+    expect(sanitizePersisted({ units: 'stone', mode: 'kettlebell', scheme: 'wave', roundTo: 3, theme: 'neon', anchorType: 'bolt', collarId: 'tape' })).toEqual({});
+    expect(sanitizePersisted({ units: 'kg', mode: 'landmine', scheme: 'drop', roundTo: 2.5, theme: 'light' }))
+      .toEqual({ units: 'kg', mode: 'landmine', scheme: 'drop', roundTo: 2.5, theme: 'light' });
+  });
+
+  test('nullable keys accept only their own kinds of value', () => {
+    expect(sanitizePersisted({ restEndsAt: {}, activeIdx: true, onboard: 5, tourSnap: 7 })).toEqual({});
+    expect(sanitizePersisted({ restEndsAt: 123, activeIdx: 2, onboard: false, tourSnap: { working: 1 } }))
+      .toEqual({ restEndsAt: 123, activeIdx: 2, onboard: false, tourSnap: { working: 1 } });
+  });
+
+  test('one unreadable history record is dropped, the rest of the history is kept', () => {
+    const out = sanitizePersisted({ records: [rec, { id: 'x', at: 1, exercise: 'Squat' }, { ...rec, id: 'r2' }] });
+    expect((out.records || []).map((r) => r.id)).toEqual(['r1', 'r2']);
+  });
+
+  test('the haptic fires when the rest reaches zero, but not when the phone was locked past the end', () => {
+    const spy = jest.spyOn(haptics, 'timerDone').mockImplementation(() => undefined);
+    let t = 1_700_000_000_000;
+    const stop = bootStore({ tourDelay: 0, now: () => t });
+    try {
+      storeLogic.tapSet(0);
+      useStore.setState({ remaining: 1, restEndsAt: t + 1000 });
+      t += 1000; storeLogic.tick(t);
+      expect(useStore.getState().remaining).toBe(0);
+      expect(spy).toHaveBeenCalledTimes(1);
+      // now the same countdown ends while the app is suspended: the buzz would arrive minutes late
+      spy.mockClear();
+      storeLogic.tapSet(1);
+      useStore.setState({ remaining: 5, restEndsAt: t + 5000 });
+      t += 600_000; storeLogic.tick(t);
+      expect(useStore.getState().remaining).toBe(0);
+      expect(spy).not.toHaveBeenCalled();
+    } finally { stop(); spy.mockRestore(); }
+  });
+
+  test('storage is written when something changes and left alone when nothing does', async () => {
+    const stop = bootStore({ tourDelay: 0 });
+    // wrap rather than jest.spyOn: the async-storage mock's own jest.fn does not survive a restore,
+    // and a broken setItem would silently break every test after this one
+    const original = AsyncStorage.setItem;
+    let writes = 0;
+    (AsyncStorage as unknown as Record<string, unknown>).setItem = (...args: unknown[]) => {
+      writes++;
+      return (original as unknown as (...a: unknown[]) => Promise<void>)(...args);
+    };
+    try {
+      useStore.setState({ working: 235 });
+      await drain();
+      const afterChange = writes;
+      expect(afterChange).toBeGreaterThan(0);
+      // the rest tick writes `remaining`, which is not persisted: no new write
+      for (let i = 0; i < 5; i++) useStore.setState({ remaining: 100 - i });
+      await drain();
+      expect(writes).toBe(afterChange);
+    } finally {
+      (AsyncStorage as unknown as Record<string, unknown>).setItem = original;
+      stop();
+    }
+  });
+
+  test('an undetermined system appearance is treated as light, not dark', () => {
+    const spy = jest.spyOn(Appearance, 'getColorScheme').mockReturnValue(null);
+    const stop = bootStore({ tourDelay: 0 });
+    try { expect(useStore.getState().systemDark).toBe(false); } finally { stop(); spy.mockRestore(); }
   });
 
   test('a write that changes nothing does not wake subscribers', () => {
@@ -233,6 +405,7 @@ describe('store binding', () => {
   });
 
   test('unreadable storage still lets the app settle and mount', async () => {
+    await drain();
     await AsyncStorage.setItem(STORAGE_KEY, '{"state":{"units":"kg"');
     await useStore.persist.rehydrate();
     const stop = bootStore({ tourDelay: 0 });
@@ -243,21 +416,45 @@ describe('store binding', () => {
     } finally { stop(); }
   });
 
+  test('an unreadable read that lands AFTER boot settles the app at once, not on the timeout', async () => {
+    await drain();
+    await AsyncStorage.setItem(STORAGE_KEY, '{"state":{"units":"kg"');
+    const pending = useStore.persist.rehydrate();
+    const stop = bootStore({ tourDelay: 0 });
+    try {
+      await pending;
+      expect(isHydrationSettled()).toBe(true);
+    } finally { stop(); }
+  });
+
+  test('a rest that was paused before it started comes back paused with its full time', async () => {
+    const t0 = 1_800_000_000_000;
+    await seedStorage({ tourSeen: true, onboard: false, activeIdx: 2, restTotal: 90, restEndsAt: null, paused: true });
+    await useStore.persist.rehydrate();
+    const stop = bootStore({ tourDelay: 0, now: () => t0 });
+    try {
+      expect(useStore.getState().activeIdx).toBe(2);
+      expect(useStore.getState().paused).toBe(true);
+      expect(useStore.getState().remaining).toBe(90);
+    } finally { stop(); }
+  });
+
   test('a rest in progress survives a relaunch through its wall-clock end time', async () => {
     const t0 = 1_800_000_000_000;
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ state: { tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: t0 + 61_000, paused: false }, version: 1 }));
+    await seedStorage({ tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: t0 + 61_400, paused: false });
     await useStore.persist.rehydrate();
     const stop = bootStore({ tourDelay: 0, now: () => t0 });
     try {
       expect(useStore.getState().activeIdx).toBe(1);
       expect(useStore.getState().remaining).toBe(61);
-      expect(useStore.getState().restEndsAt).toBe(t0 + 61_000);
+      // the saved end time is the truth: booting must not re-anchor it to the rounded remainder
+      expect(useStore.getState().restEndsAt).toBe(t0 + 61_400);
     } finally { stop(); }
   });
 
   test('a rest that ended more than 30 minutes ago is dropped on relaunch', async () => {
     const t0 = 1_800_000_000_000;
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ state: { tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: t0 - 3_600_000, paused: false }, version: 1 }));
+    await seedStorage({ tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: t0 - 3_600_000, paused: false });
     await useStore.persist.rehydrate();
     const stop = bootStore({ tourDelay: 0, now: () => t0 });
     try {
@@ -275,14 +472,38 @@ describe('theme contrast', () => {
   };
   const ratio = (a: string, b: string) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
+  /** Flatten an rgba() token over an opaque background, the way the screen composites it. */
+  const over = (rgba: string, bg: string) => {
+    const m = rgba.match(/rgba?\(([^)]+)\)/);
+    if (!m) return rgba;
+    const [r, g, b, a = '1'] = m[1].split(',').map((x) => x.trim());
+    const back = bg.replace('#', '');
+    const mix = (i: number, v: number) => Math.round(v * Number(a) + parseInt(back.slice(i, i + 2), 16) * (1 - Number(a)));
+    return '#' + [mix(0, Number(r)), mix(2, Number(g)), mix(4, Number(b))].map((v) => v.toString(16).padStart(2, '0')).join('');
+  };
+
   test.each(['dark', 'light'] as const)('%s theme: muted text reads at 4.5:1 or better on every surface it sits on', (theme) => {
     const l = fresh({ theme, systemDark: theme === 'dark' });
     const t = l.palette() as unknown as Record<string, string>;
     for (const fg of ['mut', 'mut2', 'mut3', 'mut4', 'mut5']) {
-      for (const bg of ['bg', 'card', 'card2', 'ctl2']) {
-        expect({ fg, bg, ratio: Math.round(ratio(t[fg], t[bg]) * 100) / 100 }).toEqual(expect.objectContaining({ ratio: expect.any(Number) }));
+      for (const bg of ['bg', 'card', 'card2', 'card3', 'ctl2']) {
         expect(ratio(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
       }
+    }
+  });
+
+  test.each(['dark', 'light'] as const)('%s theme: tinted panels stay readable for every accent', (theme) => {
+    const accents = fresh({}).accents();
+    for (const a of accents) {
+      const l = fresh({ theme, systemDark: theme === 'dark', accent: a.id });
+      const t = l.palette() as unknown as Record<string, string>;
+      // the rest panel's "ADD FOR NEXT" plate chips (accent text on an accent tint of the card)
+      expect(ratio(t.accDeep, over(t.accA14, t.card2))).toBeGreaterThanOrEqual(4.5);
+      // the ADJUSTED badge and the target-unreachable banner
+      expect(ratio(t.warnTx, over(t.warnA22, t.card))).toBeGreaterThanOrEqual(4.5);
+      expect(ratio(t.warnTx2, over(t.warnA13, t.card))).toBeGreaterThanOrEqual(4.5);
+      // "STRIP FOR NEXT" chips
+      expect(ratio(t.dan3, over(t.dan2A14, t.card2))).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

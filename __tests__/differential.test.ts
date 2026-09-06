@@ -111,6 +111,14 @@ const pick = (o: unknown) => {
 };
 
 const Proto = loadPrototype();
+// The port is only locked to the prototype while this actually runs. A silent skip in the jest
+// summary is easy to miss, so say so loudly — and fail outright when the full suite is asked for.
+if (!Proto) {
+  const msg = 'differential SKIPPED: prototype not found at ' + HANDOFF;
+  if (process.env.PLATEIQ_FULL === '1' || process.env.PLATEIQ_REQUIRE_DIFF === '1') throw new Error(msg + ' (required by PLATEIQ_FULL / PLATEIQ_REQUIRE_DIFF)');
+  // eslint-disable-next-line no-console
+  console.warn('\n*** ' + msg + ' — the locked-solver check did NOT run ***\n');
+}
 const maybe = Proto ? describe : describe.skip;
 
 maybe('port vs. prototype (differential, ' + N.toLocaleString() + ' scenarios)', () => {

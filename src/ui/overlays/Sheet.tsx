@@ -35,7 +35,7 @@ export function Sheet({ title, a11yLabel, onClose, intro, children, scroll, maxH
   const body = (
     <>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={a11yLabel + '. ' + title} style={{ flexShrink: 1 }}>
+        <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={a11yLabel === title ? title : a11yLabel + '. ' + title} style={{ flexShrink: 1 }}>
           <Num size={21} weight={700} ls={-0.3}>{title}</Num>
         </View>
         <Tap label="Close" onPress={onClose} style={{ width: 40, height: 40, borderRadius: 99, backgroundColor: c('ctl2'), alignItems: 'center', justifyContent: 'center' }} pressedStyle={{ backgroundColor: c('ctlHi') }}>

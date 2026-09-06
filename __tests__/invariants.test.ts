@@ -107,9 +107,17 @@ describe('randomised invariants (seed ' + SEED + ', ' + N.toLocaleString() + ' s
         check(s.side.every((w) => plateSet.indexOf(w) >= 0), () => 'plate not in set ' + tag());
         const sum = s.side.reduce((a, b) => a + b, 0);
         check(Math.abs(s.total - (base + k * sum)) < 1e-6, () => 'total != base + plates ' + tag());
-        // a landmine's effective weight is a rounded projection of the loaded bar, so 'exact' means within a plate step
-        const tol = patch.mode === 'landmine' ? (patch.units === 'kg' ? 2.5 : 5) : 1e-6;
-        if (s.miss === 0 && !s.overBase && !s.full) check(Math.abs(s.main - s.want) <= tol, () => 'miss 0 but main != want ' + tag());
+        if (patch.mode === 'landmine') {
+          // A landmine target is effective weight; only the loaded side sits on a plate grid, so
+          // main == want does not hold. What must hold is that the effective number shown is
+          // exactly the loaded bar seen through the anchor, on the solver's effective step.
+          const coef = { rack: 0.8, hinge: 0.75, sleeve: 0.7 }[patch.anchorType!];
+          const effStep = patch.units === 'kg' ? 0.25 : 0.5;
+          const proj = Math.round(s.total * coef / effStep) * effStep;
+          check(Math.abs(s.main - proj) < 1e-6, () => 'effective main is not the loaded bar through the anchor (' + proj + ') ' + tag());
+        } else if (s.miss === 0 && !s.overBase && !s.full) {
+          check(Math.abs(s.main - s.want) < 1e-6, () => 'miss 0 but main != want ' + tag());
+        }
         if (patch.homeGym && patch.mode === 'barbell') {
           const counts: Record<number, number> = {};
           s.side.forEach((w) => { counts[w] = (counts[w] || 0) + 1; });
@@ -179,6 +187,44 @@ describe('randomised invariants (seed ' + SEED + ', ' + N.toLocaleString() + ' s
       const after = partialize(state(l)) as Record<string, unknown>;
       ['tourSeen', 'tourSnap', 'restEndsAt', 'remaining'].forEach((k) => { delete before[k]; delete after[k]; });
       expect(after).toEqual(before);
+    }
+  });
+
+  test('every stepper press keeps the field and the card on the same number', () => {
+    const bad: string[] = [];
+    for (let i = 0; i < Math.ceil(N / 4) && bad.length < 8; i++) {
+      const patch = randomStateFixed();
+      if (patch.mode === 'landmine') continue; // landmine targets are a projection, checked separately
+      const l = fresh(patch);
+      const v = l.renderVals();
+      const read = () => (patch.mode === 'dumbbell' ? state(l).dbTotal : state(l).working);
+      for (let k = 0; k < 6; k++) {
+        const before = read();
+        (chance(0.5) ? v.incWorking : v.decWorking)();
+        const after = read();
+        const want = l.plan().work.want;
+        if (Math.abs(after - want) > 1e-6) bad.push('#' + i + ' field ' + after + ' vs card ' + want + ' ' + JSON.stringify({ mode: patch.mode, units: patch.units, roundTo: patch.roundTo, bar: patch.bar, before }));
+        const floor = patch.mode === 'dumbbell' ? patch.dbHandle! : patch.bar!;
+        if (after < floor - 1e-6) bad.push('#' + i + ' stepped below the implement: ' + after + ' < ' + floor);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('a typed target is read the same with either decimal separator and never lands below the implement', () => {
+    for (let i = 0; i < Math.ceil(N / 4); i++) {
+      const patch = randomStateFixed();
+      const l = fresh(patch);
+      const dot = fresh(patch);
+      const v = Math.round((10 + rng() * 300) * 4) / 4;
+      l.setState({ workDraft: String(v).replace('.', ',') });
+      dot.setState({ workDraft: String(v) });
+      l.commitWorking(); dot.commitWorking();
+      const read = (x: PlateIQLogic) => (patch.mode === 'dumbbell' ? state(x).dbTotal : patch.mode === 'landmine' ? state(x).lmTarget : state(x).working);
+      expect(read(l)).toBe(read(dot));
+      expect(Number.isFinite(read(l))).toBe(true);
+      if (patch.mode === 'barbell') expect(read(l)).toBeGreaterThanOrEqual(patch.bar!);
+      if (patch.mode === 'dumbbell') expect(read(l)).toBeGreaterThanOrEqual(patch.dbHandle!);
     }
   });
 

@@ -18,8 +18,8 @@ export function UndoToast({ label, aboveTimer, onUndo, onDismiss }: { label: str
   useEffect(() => { announce(label + '. Undo available'); }, [label]);
   return (
     <Animated.View
-      accessibilityRole="alert"
-      accessibilityLiveRegion="polite"
+      // announce() below does the speaking on every platform; a live region as well
+      // makes Android read the toast twice
       style={[
         { position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 10 + (aboveTimer ? TIMER_STACK : 0), flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c('card2'), borderWidth: 1, borderColor: c('bd2'), borderRadius: 16, paddingVertical: 10, paddingLeft: 14, paddingRight: 12, zIndex: 5 },
         Platform.select({ ios: { shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 17, shadowOffset: { width: 0, height: -8 } }, android: { elevation: 10 }, default: {} }),

@@ -42,7 +42,7 @@ export function LibraryScreen({ v }: { v: V }) {
         {v.exercises.map((x) => (
           <Tap key={x.name} accessible={false} label={x.name} onPress={x.pick} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c(x.cardBg), borderWidth: 1, borderColor: c(x.cardBd), borderRadius: 18, paddingVertical: 13, paddingHorizontal: 14 }} pressedStyle={{ borderColor: c('bd3') }}>
             {/* VoiceOver: the row itself is not one element, or the queue button inside it would vanish */}
-            <Tap label={x.name + ', ' + x.modeLabel + ' · ' + x.tag + ', last top set ' + x.lastLabel + (x.active ? ', current' : '')} onPress={x.pick} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }} pressedStyle={{ opacity: 0.8 }}>
+            <Tap label={x.name + ', ' + x.modeLabel + ' · ' + x.tag + ', last top set ' + x.lastLabel + (x.active ? ', current' : '')} onPress={x.pick} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: -13, paddingVertical: 13 }} pressedStyle={{ opacity: 0.8 }}>
               <View style={{ flex: 1 }}>
                 <Num size={16} weight={700} color="tx2" ls={-0.2}>{x.name}</Num>
                 <Txt size={12} color="mut3" style={{ marginTop: 3 }}>{x.modeLabel} · {x.tag}</Txt>

@@ -8,7 +8,7 @@ import { announce } from '../ui/overlays/TimerPanel';
 import type { ScrollView as ScrollViewT } from 'react-native';
 import { PulseDot } from '../ui/PulseDot';
 import { useView } from '../store/useStore';
-import { Badge, Card, GradientBox, Hairline, IconButton, Num, Tap, Txt, anchorProps, stop } from '../ui/primitives';
+import { Badge, Card, GradientBox, Hairline, IconButton, MAX_FONT_SCALE, Num, Tap, Txt, anchorProps, stop } from '../ui/primitives';
 import { ARCHIVO, SCREEN_PAD, useTheme } from '../ui/theme';
 import { BarWell, LandmineWell } from '../ui/plates/Wells';
 import type { Shaft } from '../ui/plates/Wells';
@@ -68,10 +68,24 @@ function AddSetButton({ onPress }: { onPress: () => void }) {
 function NumberField({ value, onChange, onCommit, size, weight, width, ls, label, dashed, align, flex }: { value: string; onChange: (v: string) => void; onCommit: () => void; size: number; weight: 700 | 800; width?: number; ls?: number; label: string; dashed: string; align?: 'center' | 'left'; flex?: number }) {
   const { c } = useTheme();
   const [focus, setFocus] = React.useState(false);
-  // the logic sizes the field from the unscaled font; follow the user's text size (Dynamic Type)
+  // the logic sizes the field from the unscaled font; follow the user's text size (Dynamic Type),
+  // capped where the type is capped so the field cannot outgrow its card
   const { fontScale } = useWindowDimensions();
-  const scaledWidth = width === undefined ? undefined : Math.round(width * fontScale);
+  const scale = Math.min(fontScale, MAX_FONT_SCALE);
+  const scaledWidth = width === undefined ? undefined : Math.round(width * scale);
+  // each field needs its own accessory view: one nativeID can only serve one input
+  const accessoryId = React.useId();
   return (
+    <>
+    {Platform.OS === 'ios' ? (
+      <InputAccessoryView nativeID={accessoryId}>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: c('card2'), borderTopWidth: 1, borderColor: c('bd2'), paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Tap label={'Done editing ' + label} onPress={() => Keyboard.dismiss()} style={{ minHeight: 44, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 12, backgroundColor: c('ctl2') }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
+            <Txt size={14} weight={700} color="accDeep">Done</Txt>
+          </Tap>
+        </View>
+      </InputAccessoryView>
+    ) : null}
     <TextInput
       accessibilityLabel={label}
       value={value}
@@ -83,7 +97,8 @@ function NumberField({ value, onChange, onCommit, size, weight, width, ls, label
       keyboardType="decimal-pad"
       returnKeyType="done"
       // the decimal pad has no return key: the accessory bar's Done is the only way to commit by hand
-      inputAccessoryViewID={Platform.OS === 'ios' ? KEYBOARD_DONE : undefined}
+      inputAccessoryViewID={Platform.OS === 'ios' ? accessoryId : undefined}
+      maxFontSizeMultiplier={MAX_FONT_SCALE}
       style={[
         {
           fontFamily: ARCHIVO[weight], fontSize: size, color: c('tx'), letterSpacing: ls, padding: 0, margin: 0,
@@ -94,23 +109,7 @@ function NumberField({ value, onChange, onCommit, size, weight, width, ls, label
         Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as object) : null,
       ]}
     />
-  );
-}
-
-const KEYBOARD_DONE = 'plateiq-number-done';
-
-/** iOS: a Done bar above the decimal pad (which has no return key). Blurring the field commits it. */
-function KeyboardDoneBar() {
-  const { c } = useTheme();
-  if (Platform.OS !== 'ios') return null;
-  return (
-    <InputAccessoryView nativeID={KEYBOARD_DONE}>
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: c('card2'), borderTopWidth: 1, borderColor: c('bd2'), paddingHorizontal: 12, paddingVertical: 6 }}>
-        <Tap label="Done editing" onPress={() => Keyboard.dismiss()} style={{ minHeight: 44, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 12, backgroundColor: c('ctl2') }} pressedStyle={{ backgroundColor: c('ctlHi') }}>
-          <Txt size={14} weight={700} color="accDeep">Done</Txt>
-        </Tap>
-      </View>
-    </InputAccessoryView>
+    </>
   );
 }
 
@@ -285,7 +284,6 @@ export function MainScreen() {
       // the rest panel (~230 pt incl. a wrapped plate row) plus the home indicator must never hide the last card
       style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 260 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentInsetAdjustmentBehavior="never"
     >
-      <KeyboardDoneBar />
       {/* header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, paddingHorizontal: PAD, paddingBottom: 14 }}>
         <Tap label={'Exercise: ' + v.exercise + '. Open the exercise library'} onPress={v.goLibrary} pressedStyle={{ opacity: 0.7 }}>

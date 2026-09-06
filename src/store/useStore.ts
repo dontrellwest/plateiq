@@ -47,8 +47,28 @@ const arrayOk: Partial<Record<keyof AppState, (item: unknown) => boolean>> = {
   doneIdx: (x) => isNum(x),
   session: (x) => typeof x === 'string',
   sessionDone: (x) => typeof x === 'string',
-  records: (x) => isObj(x) && Array.isArray(x.sets) && typeof x.exercise === 'string' && isNum(x.at),
+  records: (x) => isObj(x) && Array.isArray(x.sets) && x.sets.every((s) => isObj(s) && isNum(s.w) && isNum(s.r))
+    && typeof x.exercise === 'string' && isNum(x.at) && typeof x.id === 'string'
+    && ['barbell', 'dumbbell', 'landmine'].indexOf(x.mode as string) >= 0 && ['lb', 'kg'].indexOf(x.units as string) >= 0,
   warmups: (x) => isObj(x) && typeof x.id === 'string' && isNum(x.pct) && isNum(x.reps) && isNum(x.rest),
+};
+/** Values that must be one of a fixed set — a renamed id from another build must not stick. */
+const enumOk: Partial<Record<keyof AppState, ReadonlyArray<unknown>>> = {
+  units: ['lb', 'kg'],
+  mode: ['barbell', 'dumbbell', 'landmine'],
+  anchorType: ['rack', 'hinge', 'sleeve'],
+  collarId: ['none', 'clip', 'comp'],
+  scheme: ['single', 'straight', 'backoff', 'reverse', 'drop', 'cluster', 'amrap'],
+  roundTo: [0.25, 0.5, 1.25, 2.5],
+  theme: ['light', 'dark', 'system'],
+};
+/** Keys whose default is null, so `typeof` cannot describe what else they may hold. */
+const nullableOk: Partial<Record<keyof AppState, (v: unknown) => boolean>> = {
+  onboard: (v) => v === null || typeof v === 'boolean',
+  tourSnap: (v) => v === null || isObj(v),
+  restEndsAt: (v) => v === null || isNum(v),
+  activeIdx: (v) => v === null || (isNum(v) && Number.isInteger(v) && v >= 0),
+  undo: (v) => v === null,
 };
 
 /**
@@ -63,13 +83,17 @@ export function sanitizePersisted(persisted: unknown): StatePatch {
   PERSISTED_KEYS.forEach((k) => {
     if (!(k in persisted)) return;
     const v = persisted[k], d = base[k];
+    const allowed = enumOk[k];
+    if (allowed) { if (allowed.indexOf(v) >= 0) out[k] = v; return; }
     let ok: boolean;
     if (Array.isArray(d)) {
       const each = arrayOk[k];
-      ok = Array.isArray(v) && (!each || v.every(each));
+      // one bad row must not cost the user the whole list (a history of 40 sessions, say)
+      if (Array.isArray(v)) { out[k] = each ? v.filter(each) : v; }
+      return;
     } else if (d === null) {
-      // onboard (boolean | null), tourSnap (object | null), restEndsAt / activeIdx (number | null)
-      ok = v === null || typeof v === 'boolean' || isObj(v) || isNum(v);
+      const nk = nullableOk[k];
+      ok = nk ? nk(v) : v === null;
     } else if (typeof d === 'number') ok = isNum(v);
     else if (typeof d === 'boolean') ok = typeof v === 'boolean';
     else if (typeof d === 'string') ok = typeof v === 'string';
@@ -81,6 +105,8 @@ export function sanitizePersisted(persisted: unknown): StatePatch {
 }
 
 let hydrationFailed = false;
+/** Set by bootStore so a hydration error settles the app immediately, not on the 4 s fallback. */
+let onHydrationError: (() => void) | null = null;
 let lastWritten: Record<string, unknown> | null = null;
 
 /**
@@ -121,6 +147,7 @@ export const useStore = create<AppState>()(
         // unreadable storage must not leave the app stuck behind a half-mounted tour overlay
         hydrationFailed = true;
         console.warn('PlateIQ: saved data could not be read — starting fresh', error);
+        if (onHydrationError) onHydrationError();
       }
     },
   }),
@@ -221,6 +248,7 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     logic.mount(opts.tourDelay ?? 500);
     settledListeners.splice(0).forEach((cb) => cb());
   };
+  onHydrationError = finishHydration;
   if (useStore.persist.hasHydrated() || hydrationFailed) finishHydration();
   const offHydrate = useStore.persist.onFinishHydration(finishHydration);
   // hydration that neither completes nor reports an error (storage hangs) must not block the app
@@ -251,6 +279,7 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
   const rmSub = AccessibilityInfo.addEventListener('reduceMotionChanged', (v) => useStore.setState({ reduceMotion: !!v }));
 
   booted = () => {
+    onHydrationError = null;
     clearInterval(interval);
     clearTimeout(fallback);
     unsub();

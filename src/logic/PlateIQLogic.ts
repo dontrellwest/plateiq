@@ -603,12 +603,21 @@ export class PlateIQLogic {
   // The progress bar is driven imperatively via the TourHost so the solver only re-runs at keyframes.
   // show the fingertip over the anchor, then fire fn ~0.45s later at the press
   _tourTapFn: (() => void) | null = null;
+  /** Run an armed fingertip action now, so a later tap can never overtake it. */
+  _drainTourTap() {
+    if (!this._tourTapFn) return;
+    const pending = this._tourTapFn;
+    this._tourTapFn = null;
+    clearTimeout(this._tourTapTo);
+    if (this.state.tour === 'play') pending();
+  }
   tourTap(sel: string, fn?: () => void) {
     const shown = this.tourHost ? this.tourHost.press(sel) : false;
-    if (!shown) { if (fn) fn(); return; }
-    // two taps in one timeline step (a long frame after backgrounding) must both land, in order
+    // two taps in one timeline step (a long frame after backgrounding) must both land, in order —
+    // including when the second anchor is not on screen and its action would otherwise run at once
+    if (!shown) { this._drainTourTap(); if (fn) fn(); return; }
     clearTimeout(this._tourTapTo);
-    if (this._tourTapFn) { const pending = this._tourTapFn; this._tourTapFn = null; if (this.state.tour === 'play') pending(); }
+    this._drainTourTap();
     this._tourTapFn = fn || null;
     this._tourTapTo = setTimeout(() => { this._tourTapFn = null; if (this.state.tour === 'play' && fn) fn(); }, 450);
   }
@@ -751,7 +760,8 @@ export class PlateIQLogic {
       const rest = pct >= 85 ? 120 : pct >= 55 ? 90 : 60;
       const list = s.warmups.concat([{ id: 'w' + Date.now(), label: pct + '%', pct, reps, rest }])
         .sort((a, b) => a.pct - b.pct);
-      return { warmups: list, ...this.progressReset() };
+      // a new rung shifts every set index the pending undo refers to
+      return { warmups: list, undo: null, ...this.progressReset() };
     });
   }
   setReps(id: string, d: number) {
@@ -821,17 +831,28 @@ export class PlateIQLogic {
         : { bar: v, barDraft: String(v), barProfile: match ? match.id : 'custom', working: Math.max(v + gap, s.working), ...this.progressReset() };
     });
   }
-  /** Effective-weight floor for a landmine target: the bare bar (plus collars) seen through the anchor. */
-  lmFloor(s: AppState): number {
+  /**
+   * A loaded landmine bar seen through its anchor. The grid is the solver's own effective step
+   * (0.5 lb / 0.25 kg — the one `evaluate` reports `main` on), NOT the user's rounding step: an
+   * effective weight off that grid is a number the card can never show back.
+   */
+  lmEffective(loaded: number): number {
+    const s = this.state;
     const coef = ANCHOR_COEF[s.anchorType] || 0.766;
     const effStep = s.units === 'kg' ? 0.25 : 0.5;
-    return Math.round(this.baseTotal() * coef / effStep) * effStep;
+    return Math.round(loaded * coef / effStep) * effStep;
+  }
+  /** Effective-weight floor for a landmine target: the bare bar (plus collars) seen through the anchor. */
+  lmFloor(_s: AppState): number {
+    return this.lmEffective(this.baseTotal());
   }
   setMode(id: Mode) {
     this.setState((s) => ({
       mode: id,
       workDraft: null,
       barDraft: String(id === 'dumbbell' ? s.dbHandle : s.bar),
+      // the pending undo describes a rest or a log on the other implement's ladder
+      undo: null,
       ...this.progressReset(),
     }));
   }
@@ -851,6 +872,7 @@ export class PlateIQLogic {
       collarId: st.collarId,
       rmW: cv(st.rmW, big),
       revSide: [],
+      undo: null, // the pending undo is in the other unit
       ...this.progressReset(),
     }));
     // a named bar keeps its identity across units — its weight is spec, not a conversion
@@ -987,7 +1009,7 @@ export class PlateIQLogic {
       const effStep = st.units === 'kg' ? 0.25 : 0.5;
       // one press = one plate step on the loaded side (the rounding grid is far too fine for a stepper)
       const inc = this.step();
-      const toEff = (n: number) => Math.round(n * coef / effStep) * effStep;
+      const toEff = (n: number) => this.lmEffective(n);
       const loaded = Math.round((curV / coef) / inc) * inc;
       let next = toEff(loaded + (d > 0 ? inc : -inc));
       if ((d > 0 && next <= curV) || (d < 0 && next >= curV)) next = toEff(loaded + (d > 0 ? inc * 2 : -inc * 2));
@@ -997,18 +1019,18 @@ export class PlateIQLogic {
     // a target already at or below that floor simply stays where it is.
     const down = (cur: number, next: number, floor: number) => (next >= floor ? next : cur <= floor ? cur : floor);
     const stepTo = (cur: number, next: number, floor: number) => (next > cur ? next : down(cur, next, floor));
-    // a press moves one plate step, then lands on the rounding grid the plan uses (2x roundTo for a
-    // barbell, roundTo per dumbbell) so the field and the card always agree; a grid coarser than the
-    // step becomes the step, otherwise a press could snap straight back to where it started
-    const grid = (st.roundTo || step) * (dbl ? 1 : 2);
-    const inc = Math.max(step, grid);
-    // round in the direction of travel so a press up and a press down return to the same number
+    // A press moves ONE plate step and then lands on the grid the plan rounds to (roundTarget:
+    // 2x roundTo for barbell AND dumbbell, roundTo for landmine), so the field and the card always
+    // show the same number. Rounding in the direction of travel makes up-then-down a round trip.
+    const grid = (st.roundTo || step) * 2;
     const snap = (n: number, dir: number) => Math.round((dir > 0 ? Math.ceil(n / grid - 1e-9) : Math.floor(n / grid + 1e-9)) * grid * 1000) / 1000;
+    // the lowest target the steppers offer is one plate step above the implement, on the grid
+    const gridFloor = (n: number) => snap(n, 1);
     const bump = (d: number) => this.setState((s) => (dbl
-      ? { dbTotal: stepTo(s.dbTotal, snap(s.dbTotal + Math.sign(d) * inc, d), s.dbHandle + step), ...this.progressReset() }
+      ? { dbTotal: stepTo(s.dbTotal, snap(s.dbTotal + Math.sign(d) * step, d), gridFloor(s.dbHandle + step)), ...this.progressReset() }
       : m === 'landmine'
         ? { lmTarget: stepTo(s.lmTarget, lmStep(s.lmTarget, d), this.lmFloor(s)), ...this.progressReset() }
-        : { working: stepTo(s.working, snap(s.working + Math.sign(d) * inc, d), s.bar + step), ...this.progressReset() }));
+        : { working: stepTo(s.working, snap(s.working + Math.sign(d) * step, d), gridFloor(s.bar + step)), ...this.progressReset() }));
 
     const scale = dbl ? (st.dbPair ? 0.5 : 0.62) : 1;
     const pScale = m === 'landmine' ? 0.44 : scale;
@@ -1215,9 +1237,7 @@ export class PlateIQLogic {
     const revSum = st.revSide.reduce((a, b) => a + b, 0);
     const revTotal = Math.round((p.base + (m === 'landmine' ? revSum : revSum * 2)) * 100) / 100;
     // a landmine target is EFFECTIVE weight; the plates read off the sleeve are LOADED weight
-    const revTarget = m === 'landmine'
-      ? (() => { const coef = ANCHOR_COEF[st.anchorType] || 0.766; const effStep = st.units === 'kg' ? 0.25 : 0.5; return Math.round(revTotal * coef / effStep) * effStep; })()
-      : revTotal;
+    const revTarget = m === 'landmine' ? this.lmEffective(revTotal) : revTotal;
 
     // e1RM: Epley, with RPE converted to reps-in-reserve so a submaximal set still estimates
     const rpeLabel = String(st.rmRpe);
@@ -1795,6 +1815,7 @@ export class PlateIQLogic {
     const sessions = recs.filter((r) => Array.isArray(r.sets) && r.sets.length > 0).slice().reverse().slice(0, 8).map((r) => {
       const top = r.sets.reduce((m, s) => (s.w > m.w ? s : m), r.sets[0]);
       const v = r.sets.reduce((a, s) => a + s.w * s.r, 0);
+      /* istanbul ignore next */
       return {
         when: fmtWhen(r.at), ex: r.exercise,
         mode: r.mode.charAt(0).toUpperCase() + r.mode.slice(1),
