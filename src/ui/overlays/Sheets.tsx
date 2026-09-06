@@ -153,18 +153,18 @@ export function RmSheet({ v }: { v: V }) {
   const { c, t } = useTheme();
   const { height } = useWindowDimensions();
   return (
-    <Sheet title="Set from 1RM" a11yLabel="Set the target from a one rep max" onClose={v.closeSheet} scroll maxHeight={height * 0.88} modal={!v.tourOn}
-      intro="Enter any recent set. RPE tells PlateIQ how much you had left, so a submaximal set still estimates well.">
+    <Sheet title="Set from 1-rep max" a11yLabel="Set the target from a one rep max" onClose={v.closeSheet} scroll maxHeight={height * 0.88} modal={!v.tourOn}
+      intro="Enter any recent set. RPE is how hard it felt — 10 means nothing left in the tank, 8 means about two reps in reserve. PlateIQ uses the Epley formula, adjusted for the reps you had left, so a set short of failure still estimates well.">
       <View style={{ gap: 8 }}>
         <RmRow label="Weight" value={v.rmW} down={v.rmWDown} up={v.rmWUp} downLabel="Lower weight" upLabel="Raise weight" />
         <RmRow label="Reps" value={v.rmR} down={v.rmRDown} up={v.rmRUp} downLabel="One rep fewer" upLabel="One rep more" />
-        <RmRow label="RPE" value={v.rmRpe} down={v.rmRpeDown} up={v.rmRpeUp} downLabel="Lower RPE" upLabel="Raise RPE" />
+        <RmRow label="RPE — how hard it felt" value={v.rmRpe} down={v.rmRpeDown} up={v.rmRpeUp} downLabel="Lower RPE" upLabel="Raise RPE" />
       </View>
       <View style={{ marginTop: 14, borderRadius: 20, borderWidth: 1, borderColor: c('accA28'), overflow: 'hidden' }}>
         <GradientBox style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} stops={[{ offset: 0, color: t.accDim.startsWith('rgba') ? t.acc : t.accDim, opacity: t.accDim.startsWith('rgba') ? 0.1 : 1 }, { offset: 1, color: t.accCard2 }]} />
         <View style={{ paddingVertical: 14, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
           <View style={{ flexShrink: 1 }}>
-            <Txt size={12} weight={700} color="accDeep" ls={0.48}>ESTIMATED 1RM</Txt>
+            <Txt size={12} weight={700} color="accDeep" ls={0.48}>ESTIMATED 1-REP MAX</Txt>
             <Txt size={12} lh={17} color="heroMut" style={{ marginTop: 5 }}>{v.e1rmNote}</Txt>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 3 }}>

@@ -72,7 +72,7 @@ describe('Library', () => {
     await fireEvent.changeText(screen.getByLabelText('Search exercises'), 'landmine');
     expect(screen.getAllByText('last top set').length).toBe(3);
     await fireEvent.changeText(screen.getByLabelText('Search exercises'), 'zzz');
-    expect(screen.getByText(/No exercise matches that/)).toBeTruthy();
+    expect(screen.getByText(/isn’t here yet/)).toBeTruthy();
     await press('Clear search');
     await press('Add Deadlift to session');
     expect(useStore.getState().session).toContain('Deadlift');

@@ -36,7 +36,8 @@ export function LibraryScreen({ v }: { v: V }) {
           <Txt size={12} color={v.clearFg}>✕</Txt>
         </Tap>
       </View>
-      {v.noResults ? <Txt size={13} color="mut3" align="center" style={{ paddingVertical: 26, paddingHorizontal: 6 }}>No exercise matches that. Try press, squat or dumbbell.</Txt> : null}
+      {v.noResults ? <Txt size={13} color="mut3" align="center" style={{ paddingVertical: 26, paddingHorizontal: 6 }}>PlateIQ ships with nine lifts, so that one isn’t here yet. Try press, squat or dumbbell.</Txt> : null}
+      <Txt size={11.5} color="mut4" style={{ marginBottom: 10, marginLeft: 2 }}>Tap a lift to load it on the bar now, or + to add it to today’s session.</Txt>
 
       <View style={{ gap: 9 }}>
         {v.exercises.map((x) => (

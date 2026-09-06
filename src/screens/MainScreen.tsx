@@ -381,9 +381,16 @@ export function MainScreen() {
         </View>
       </View>
 
+      {/* The landmine target is deliberately not what is on the sleeve; nothing on screen said so. */}
+      {v.hasTargetNote ? (
+        <View style={{ marginHorizontal: PAD, marginBottom: 14, paddingVertical: 9, paddingHorizontal: 13, borderRadius: 14, backgroundColor: c('card3'), borderWidth: 1, borderColor: c('bdSoft') }}>
+          <Txt size={11.5} lh={17} color="mut3">{v.targetNote}</Txt>
+        </View>
+      ) : null}
+
       {/* reverse reader + 1RM */}
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: PAD, paddingBottom: 14 }}>
-        {[['What’s on the bar?', v.openReverse, 'Read a loaded bar'], ['Set from 1RM', v.openRm, 'Set the target from a one rep max']].map(([label, fn, a]) => (
+        {[['What’s on the bar?', v.openReverse, 'Read a loaded bar'], ['Set from 1-rep max', v.openRm, 'Set the target from a one rep max']].map(([label, fn, a]) => (
           <Tap key={label as string} label={a as string} onPress={fn as () => void} style={{ flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: c('card3'), borderWidth: 1, borderColor: c('bdSoft') }} pressedStyle={{ backgroundColor: c('ctl2') }}>
             <Txt size={12.5} weight={600} color="tx4" align="center">{label as string}</Txt>
           </Tap>

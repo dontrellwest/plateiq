@@ -97,7 +97,7 @@ export function HistoryScreen({ v }: { v: V }) {
       <Card radius={20} pad={[15, 16]} style={{ marginBottom: 20, paddingBottom: 13 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <View style={{ flexShrink: 1 }}>
-            <Txt size={13.5} weight={600} color="tx3">Estimated 1RM</Txt>
+            <Txt size={13.5} weight={600} color="tx3">Estimated 1-rep max</Txt>
             <Txt size={11.5} color="mut3" numberOfLines={1} style={{ marginTop: 2 }}>{v.trendName} · last 8 weeks</Txt>
           </View>
           {v.trendReady ? (

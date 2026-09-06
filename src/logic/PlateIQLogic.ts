@@ -1425,6 +1425,11 @@ export class PlateIQLogic {
       unit: st.units,
       barLabel: dbl ? 'Handle' : 'Bar',
       targetLabel: dbl ? 'Per dumbbell' : m === 'landmine' ? 'Effective weight' : 'Working weight',
+      targetNote: m === 'landmine'
+        ? 'A landmine takes part of the load through its pivot, so this is what the lift feels '
+          + 'like — less than the plates on the sleeve.'
+        : '',
+      hasTargetNote: m === 'landmine',
       rotate: m === 'landmine' ? geo.angle : 0,
       pivotX: geo.px,
       pivotY: geo.py,
@@ -1667,6 +1672,8 @@ export class PlateIQLogic {
       openHistory: () => this.setState({ screen: 'history' }),
       togglePause: () => this.setState((s) => ({ paused: !s.paused })),
       finishRest: () => this.finishRest(),
+      // the summary is where you notice a wrong rep count; there was no way back to fix it
+      backToSets: () => this.setState({ allDone: false }),
       resetAll: () => this.setState((s) => ({
         allDone: false, doneIdx: [], activeIdx: null, log: {},
         ...this.undoPatch(s, 'Discarded ' + s.exercise, ['allDone', 'doneIdx', 'activeIdx', 'log']),

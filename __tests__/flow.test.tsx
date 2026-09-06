@@ -151,7 +151,7 @@ describe('completion modal', () => {
   test('Discard clears progress without recording, with an undo', async () => {
     logic.tapSet(1); logic.finishRest();
     await mount();
-    await press('Discard this exercise');
+    await press('Discard every set logged for this exercise');
     expect(useStore.getState().records.length).toBe(0);
     expect(useStore.getState().doneIdx).toEqual([]);
     expect(screen.getByText('Discarded Bench press')).toBeTruthy();

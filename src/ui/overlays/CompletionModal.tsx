@@ -5,7 +5,7 @@ import React from 'react';
 import { ScrollView, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import type { useView } from '../../store/useStore';
-import { Num, Txt, useA11yFocus } from '../primitives';
+import { Num, Tap, Txt, useA11yFocus } from '../primitives';
 import { MOTION, useTheme } from '../theme';
 import { useSlideUp } from '../motion';
 import { SheetButton } from './Sheet';
@@ -43,8 +43,13 @@ export function CompletionModal({ v }: { v: V }) {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 18, alignSelf: 'stretch' }}>
-          <SheetButton label="Discard this exercise" text="Discard" onPress={v.resetAll} flex={0} minWidth={110} />
+        {/* Without a way back, spotting a wrong number here meant discarding everything or saving it. */}
+        <Tap label="Go back to your sets without saving yet" onPress={v.backToSets} style={{ alignSelf: 'stretch', marginTop: 14, paddingVertical: 10, alignItems: 'center' }} pressedStyle={{ opacity: 0.6 }}>
+          <Txt size={12.5} weight={600} color="mut2">‹ Back to sets</Txt>
+        </Tap>
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4, alignSelf: 'stretch' }}>
+          <SheetButton label="Discard every set logged for this exercise" text="Discard" onPress={v.resetAll} flex={0} minWidth={110} />
           <SheetButton label={v.finishLabel} text={v.finishLabel} onPress={v.saveSession} primary />
         </View>
       </Animated.View>
