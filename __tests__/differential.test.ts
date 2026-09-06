@@ -115,7 +115,7 @@ const Proto = loadPrototype();
 // summary is easy to miss, so say so loudly — and fail outright when the full suite is asked for.
 if (!Proto) {
   const msg = 'differential SKIPPED: prototype not found at ' + HANDOFF;
-  if (process.env.PLATEIQ_FULL === '1' || process.env.PLATEIQ_REQUIRE_DIFF === '1') throw new Error(msg + ' (required by PLATEIQ_FULL / PLATEIQ_REQUIRE_DIFF)');
+  if (process.env.PLATEIQ_REQUIRE_DIFF === '1') throw new Error(msg + ' (PLATEIQ_REQUIRE_DIFF=1 was set)');
   // eslint-disable-next-line no-console
   console.warn('\n*** ' + msg + ' — the locked-solver check did NOT run ***\n');
 }

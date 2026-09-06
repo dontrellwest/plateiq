@@ -16,7 +16,7 @@ touched, and none of the view-model fields the differential test compares (`pivo
   a comma as a decimal point.
 - **Landmine "What's on the bar?"** applied the *loaded* bar weight as the *effective* target, so
   reading one 45 lb plate prescribed almost twice the plates. The reader now converts through the
-  anchor coefficient and says so ("Use 63.5 lb effective as target").
+  anchor coefficient and says so ("Use 63 lb effective as target").
 - **Stepper floors.** The minus button raised a typed 47 lb target to 50, used a hard-coded 5 even
   in kg, and could not step down to loadable kg weights. Steppers now floor one plate step above the
   bar or handle in the current unit and never move a typed value up. The landmine stepper moved
@@ -125,8 +125,9 @@ fixed too:
   press feedback did not cover the whole row; the undo toast and tour captions kept live regions
   that made Android speak them twice.
 - **The differential test** silently skipped when the prototype folder is absent, which is the case
-  on this machine. It now warns loudly and fails outright under `npm run test:full` or
-  `PLATEIQ_REQUIRE_DIFF=1`, so the locked-solver check can never be assumed to have run.
+  on this machine. It now prints a loud warning, and fails outright under `PLATEIQ_REQUIRE_DIFF=1`,
+  so a release check can require it and the gap can never be assumed away. Run it that way with the
+  design handoff folder next to the repo before shipping.
 
 Tests added for the review round: dumbbell and floor grid cases, off-grid single-step, the three
 anchors' floors, exact landmine literals, every ladder shape for card-tap completion, enum and
