@@ -202,6 +202,9 @@ describe('randomised invariants (seed ' + SEED + ', ' + N.toLocaleString() + ' s
         const before = read();
         (chance(0.5) ? v.incWorking : v.decWorking)();
         const after = read();
+        // A press at the floor is refused and leaves a typed off-grid target alone (it must never
+        // move a typed value up); the field then still shows what was typed, which the card rounds.
+        if (after === before) continue;
         const want = l.plan().work.want;
         if (Math.abs(after - want) > 1e-6) bad.push('#' + i + ' field ' + after + ' vs card ' + want + ' ' + JSON.stringify({ mode: patch.mode, units: patch.units, roundTo: patch.roundTo, bar: patch.bar, before }));
         const floor = patch.mode === 'dumbbell' ? patch.dbHandle! : patch.bar!;

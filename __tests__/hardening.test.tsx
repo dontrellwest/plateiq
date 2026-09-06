@@ -1,8 +1,14 @@
 // Regression tests for the 2026-09-05 hardening pass (see docs/HARDENING.md): every case here was
 // a confirmed defect found by the code audit or the simulator gauntlet.
 
+import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Appearance } from 'react-native';
+import { render, screen, cleanup } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Root } from '../src/Root';
+
+const initialMetrics = { frame: { x: 0, y: 0, width: 402, height: 874 }, insets: { top: 59, left: 0, right: 0, bottom: 34 } };
 import { PlateIQLogic, MemoryHost, INITIAL_STATE } from '../src/logic/PlateIQLogic';
 import { BAR_PROFILES, ANCHOR_COEF } from '../src/logic/constants';
 import type { AppState } from '../src/logic/types';
@@ -505,5 +511,19 @@ describe('theme contrast', () => {
       // "STRIP FOR NEXT" chips
       expect(ratio(t.dan3, over(t.dan2A14, t.card2))).toBeGreaterThanOrEqual(4.5);
     }
+  });
+});
+
+describe('number fields', () => {
+  test('each weight field carries its own keyboard Done bar', async () => {
+    // The decimal pad has no return key, so the accessory bar is the only Done button — and one
+    // nativeID can only serve one input, so a shared bar would reach just one of the two fields.
+    useStore.setState({ ...INITIAL_STATE, onboard: false, tour: false }, true);
+    await render(<SafeAreaProvider initialMetrics={initialMetrics}><Root /></SafeAreaProvider>);
+    expect(screen.getByLabelText('Bar weight')).toBeTruthy();
+    expect(screen.getByLabelText('Working weight')).toBeTruthy();
+    expect(screen.getByLabelText('Done editing Bar weight')).toBeTruthy();
+    expect(screen.getByLabelText('Done editing Working weight')).toBeTruthy();
+    await cleanup();
   });
 });

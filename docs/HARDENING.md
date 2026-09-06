@@ -146,6 +146,9 @@ suite now drives the steppers and typed input as well.
   adding one means a notification permission prompt (the app currently asks for none).
 - History demo strings shown during the tour are lb-only.
 - The app icon and Android assets are still the Expo template defaults.
+- A typed target that is off the rounding grid is shown as typed while the card plans the rounded
+  value (type 226.3 with a 0.25 step and the ladder builds 226.5). The steppers always land on the
+  grid; only typing can leave the two a rounding step apart, and nothing says so.
 - The solver keeps two quirks the differential test locks in: with "fewest plate changes" on in
   home-gym mode it can report a miss where an exact combination exists, and the offered
   alternatives are not always the nearest loadable weight. Changing either would change the ported
