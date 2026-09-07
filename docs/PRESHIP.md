@@ -83,6 +83,49 @@ Recorded so they are not raised again.
 - *"Day 2 has no way to clear yesterday's ladder."* Three controls on the returning user's own path
   already do. What is left is a labelling gap, not a trap.
 
+## Self-review — 2026-09-07
+
+The pre-ship diff above was then reviewed against itself: thirty-one agents over eight lenses, each
+claimed defect attacked by an independent skeptic. Four survived, three of them created by the
+diff's own new features. All are fixed, each pinned by a regression test.
+
+- **`setBarWeight` was the picker the no-op-guard pass missed**, and it is on the primary screen.
+  In dumbbell mode, tapping the handle chip already lit wiped every logged set with no Undo. Its
+  twin `pickHandle` was guarded; this is the entry point the mode chips and onboarding use.
+- **A paused rest could not survive a relaunch.** `restEndsAt` is null while paused, so the resume
+  branch could not distinguish a mid-rest pause from an auto-start-off one and always restored the
+  full time; and the 30-minute stale-rest rule only looked at `restEndsAt`, so an abandoned pause
+  never expired. Now stamped with `pausedAt` / `pausedRemaining`, written on pause transitions only.
+  **Both keys needed `nullableOk` validators** — the sanitizer accepts only `null` for a
+  null-defaulted key otherwise, which would have discarded the stamps and left the fix inert.
+- **`ctaAria` told VoiceOver a logged set's button would open the editor.** It starts a rest. Its
+  ternary also tested state in a different order from the visible label.
+- **The VoiceOver tour guard raced the native accessibility probe.** `mount()` read the flag before
+  anything had asked iOS for it, so on a fresh install the guard was roughly a coin flip. Re-checked
+  inside the timer callback where the tour actually starts — deliberately not inside `startTour`,
+  which is the user-initiated path from Settings.
+
+Lower severity, also fixed: undoing "Log & go to next" left the record in History and re-confirming
+wrote a duplicate; the launch-time notification re-check ran before saved settings existed; the
+"turn notifications on in iOS Settings" banner could never clear itself; and the 4-second storage
+fallback could start the tour on defaults and let its exit overwrite a returning user's workout.
+
+### Claims that did not survive this round
+- *"`setBarWeight` silently swaps the bar profile, changing the sleeve length the solver uses."*
+  Real state change, no reachable consequence: a sweep of every target across both gym modes found
+  the two same-weight profiles emit identical plans.
+- *"Back to sets has no way back to the completion card."* Two taps, the same two that reached it.
+- *"The new shipping-config test block leaves the 2.5.4 blocker untested."* `expo config --type
+  introspect` emits neither key; the blocker is fixed and checkable in one command.
+- *"A failed write thrashes storage once a second on a full disk."* Bounded and self-limiting.
+
+### Test-coverage gaps this review named, still open
+`saveSession` / `recordSession` had zero coverage before this round; nothing fires an AppState
+`change` event, so `recheckNotify` is still untested; nothing exercises the 4-second hydration
+fallback; and two existing tests are vacuous (`hardening.test.tsx` "a target that never mounts
+leaves the screen plainly dark", and the per-field keyboard Done bar test, which passes with a
+hardcoded shared nativeID).
+
 ## Still open before submission
 - App icon and splash are still the Expo placeholders.
 - `eas.json` deliberately omits `ascAppId` and `appleTeamId`. Placeholder strings there fail EAS's
