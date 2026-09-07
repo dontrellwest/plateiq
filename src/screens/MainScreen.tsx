@@ -102,7 +102,7 @@ function NumberField({ value, onChange, onCommit, size, weight, width, ls, label
       style={[
         {
           fontFamily: ARCHIVO[weight], fontSize: size, color: c('tx'), letterSpacing: ls, padding: 0, margin: 0,
-          width: scaledWidth, flex, flexShrink: 1, minWidth: 0, textAlign: align, fontVariant: ['tabular-nums'],
+          width: scaledWidth, flex, flexShrink: width === undefined ? 1 : 0, minWidth: 0, textAlign: align, fontVariant: ['tabular-nums'],
           borderBottomWidth: 1, borderStyle: focus ? 'solid' : 'dashed', borderBottomColor: focus ? c('acc') : c(dashed),
           lineHeight: Math.round(size * 1.15),
         },
@@ -275,6 +275,10 @@ export function MainScreen() {
   const v = useView();
   const { c, t } = useTheme();
   const insets = useSafeAreaInsets();
+  // Side by side, the target card cannot hold "- 63 lb +" once the type doubles, and the number —
+  // the whole point of the screen — is what flex squeezes out. Give it the full width instead.
+  const { fontScale } = useWindowDimensions();
+  const stackCards = fontScale > 1.4;
   const cards = v.sets;
   // VoiceOver does not read a newly shown warning box on iOS unless it is announced
   React.useEffect(() => { if (v.warn) announce(v.warn); }, [v.warn]);
@@ -342,8 +346,8 @@ export function MainScreen() {
       ) : null}
 
       {/* bar + target */}
-      <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: PAD, paddingBottom: 14 }}>
-        <Card style={{ flexBasis: 138, flexGrow: 0, flexShrink: 1, minWidth: 116 }} pad={[12, 13]}>
+      <View style={{ flexDirection: stackCards ? 'column' : 'row', gap: 10, paddingHorizontal: PAD, paddingBottom: 14 }}>
+        <Card style={stackCards ? { alignSelf: 'stretch' } : { flexBasis: 138, flexGrow: 0, flexShrink: 1, minWidth: 116 }} pad={[12, 13]}>
           <Txt size={11.5} weight={500} color="mut3">{v.barLabel}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 5 }}>
             <NumberField label={v.barLabel + ' weight'} value={v.barDraft} onChange={v.onBarInput} onCommit={v.commitBar} size={v.barFs} weight={700} flex={1} dashed="bd6" />
@@ -367,14 +371,14 @@ export function MainScreen() {
             </View>
           )}
         </Card>
-        <View {...anchorProps('target-card')} style={{ flex: 1 }}>
+        <View {...anchorProps('target-card')} style={stackCards ? { alignSelf: 'stretch' } : { flex: 1 }}>
         <Card pad={[12, 13]}>
           <Txt size={11.5} weight={500} color="mut3">{v.targetLabel}</Txt>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
             <Stepper glyph="–" label={'Lower ' + v.targetLabel.toLowerCase()} onPress={v.decWorking} />
             <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4, flex: 1, justifyContent: 'center', marginHorizontal: 4 }}>
               <NumberField label={v.targetLabel} value={v.workDraft} onChange={v.onWorkInput} onCommit={v.commitWork} size={v.workFs} weight={800} width={v.workW} ls={-1} dashed="bd5" align="center" />
-              <Txt size={12} weight={600} color="mut3">{v.unit}</Txt>
+              <Txt size={12} weight={600} color="mut3" numberOfLines={1} style={{ flexShrink: 1 }}>{v.unit}</Txt>
             </View>
             <Stepper glyph="+" label={'Raise ' + v.targetLabel.toLowerCase()} onPress={v.incWorking} anchor="inc-working" />
           </View>

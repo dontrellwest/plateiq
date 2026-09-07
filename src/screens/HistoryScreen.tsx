@@ -73,7 +73,7 @@ export function HistoryScreen({ v }: { v: V }) {
       {v.historyEmpty ? (
         <Card radius={20} pad={[18, 16]} style={{ marginBottom: 20 }}>
           <Txt size={13.5} weight={600} color="tx3">No sessions logged yet</Txt>
-          <Txt size={12.5} lh={18} color="mut3" style={{ marginTop: 6 }}>Finish an exercise and tap Log to start your history. Volume, PRs and estimated-1RM trends build from what you actually lift.</Txt>
+          <Txt size={12.5} lh={18} color="mut3" style={{ marginTop: 6 }}>Finish an exercise and tap Log to start your history. Volume, PRs and estimated 1-rep max trends build from what you actually lift.</Txt>
         </Card>
       ) : null}
 
