@@ -20,8 +20,8 @@ export function LibraryScreen({ v }: { v: V }) {
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: c('card'), borderWidth: 1, borderColor: c('bd'), borderRadius: 14, paddingHorizontal: 13, height: 46, marginBottom: 14 }}>
-        <Txt size={14} color="mut5">⌕</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: c('card'), borderWidth: 1, borderColor: c('bd'), borderRadius: 14, paddingHorizontal: 13, minHeight: 46, paddingVertical: 8, marginBottom: 14 }}>
+        <Txt size={14} lh={20} color="mut5">⌕</Txt>
         <TextInput
           accessibilityLabel="Search exercises"
           value={v.search}
@@ -30,7 +30,7 @@ export function LibraryScreen({ v }: { v: V }) {
           placeholderTextColor={c('mut4')}
           autoCorrect={false}
           returnKeyType="search"
-          style={[{ flex: 1, minWidth: 0, color: c('tx2'), fontSize: 13.5, padding: 0 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as object) : null]}
+          style={[{ flex: 1, minWidth: 0, color: c('tx2'), fontSize: 13.5, paddingVertical: 0, paddingHorizontal: 0, minHeight: 22 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as unknown as object) : null]}
         />
         <Tap label="Clear search" onPress={v.clearSearch} disabled={!v.hasSearch} accessibilityElementsHidden={!v.hasSearch} hitSlop={9} style={{ width: 26, height: 26, borderRadius: 99, backgroundColor: c(v.clearBg), alignItems: 'center', justifyContent: 'center' }} pressedStyle={{}}>
           <Txt size={12} color={v.clearFg}>✕</Txt>
