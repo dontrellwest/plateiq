@@ -109,6 +109,10 @@ export interface AppState {
   tourSeen: boolean;
   records: SessionRecord[];
   restEndsAt: number | null;
+  /** Wall clock when the rest was paused, so an abandoned pause can expire like a live one. */
+  pausedAt: number | null;
+  /** Seconds left at that moment. Written on pause only — never on the tick. */
+  pausedRemaining: number | null;
   tourSnap: StatePatch | null; // persisted so a kill mid-tour restores the real workout
   reduceMotion: boolean;
   /** VoiceOver (or another screen reader) is on. */

@@ -85,8 +85,9 @@ Recorded so they are not raised again.
 
 ## Still open before submission
 - App icon and splash are still the Expo placeholders.
-- `eas.json` has two placeholders in `submit.production.ios` (`ascAppId`, `appleTeamId`) that can
-  only be filled once the App Store Connect record exists.
+- `eas.json` deliberately omits `ascAppId` and `appleTeamId`. Placeholder strings there fail EAS's
+  own schema validation, so `eas submit` would abort before it could prompt; omitted, eas-cli asks
+  for both on the first submit and remembers them.
 - The bundle identifier is still `com.plateiq.app`, and the App Store name is undecided —
   "PlateIQ - AI Meal Tracker" already exists in the same category. Both are permanent after the
   first build / app record.

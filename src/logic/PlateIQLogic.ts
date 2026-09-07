@@ -82,6 +82,8 @@ export const INITIAL_STATE: AppState = {
   accent: 'lime',
   search: '',
   paused: false,
+  pausedAt: null,
+  pausedRemaining: null,
   // a session is an ordered queue of lifts; `exercise` is whichever one you're standing at
   session: ['Bench press', 'Overhead press', 'DB row'],
   sessionDone: [],
@@ -167,7 +169,16 @@ export class PlateIQLogic {
   /** Re-anchor the countdown's end time to now + remaining (called whenever remaining is set by a user action). */
   syncClock(now: number = Date.now()) {
     const s = this.state;
-    this.setState({ restEndsAt: s.activeIdx !== null && !s.paused ? now + s.remaining * 1000 : null });
+    const live = s.activeIdx !== null && !s.paused;
+    const held = s.activeIdx !== null && s.paused;
+    this.setState({
+      restEndsAt: live ? now + s.remaining * 1000 : null,
+      // A paused rest has no end time to come back to. Stamp when it was paused (sticky, so an
+      // abandoned pause still expires) and how much was left. Ticks skip syncClock, so neither
+      // field is written once a second.
+      pausedAt: held ? (s.pausedAt === null ? now : s.pausedAt) : null,
+      pausedRemaining: held ? s.remaining : null,
+    });
   }
   /** Mount decision: play the tour on first launch, else settle `tour` to false. */
   mount(delayMs = 500) {
@@ -177,7 +188,13 @@ export class PlateIQLogic {
       // real controls whose announcements talk over the caption. Offer it, do not force it.
       if (ob && !this.state.tourSeen && !this.state.screenReader) {
         // never start (and re-render) while the view is still laying out
-        this._tourBoot = setTimeout(() => this.startTour('onboard'), delayMs);
+        this._tourBoot = setTimeout(() => {
+            // isScreenReaderEnabled() is a separate native round trip that can answer after
+            // mount has already run. Re-check here, where the tour actually starts — NOT in
+            // startTour, because tourFromSettings is a deliberate choice that must still work.
+            if (this.state.screenReader) { this.setState({ tour: false }); return; }
+            this.startTour('onboard');
+          }, delayMs);
       } else this.setState({ tour: false });
     }
   }
@@ -860,6 +877,9 @@ export class PlateIQLogic {
     const dbl = this.state.mode === 'dumbbell';
     const gap = this.step();
     this.setState((s) => {
+      // The chip you are already on is not a change. pickHandle guards the same physical
+      // control; this is the entry point the mode chips and onboarding use.
+      if ((s.mode === 'dumbbell' ? s.dbHandle : s.bar) === v) return null;
       // picking a bar by weight must land on the named profile when one matches (onboarding picks)
       const match = (BAR_PROFILES[s.units] || BAR_PROFILES.lb).find((b) => b.w === v);
       return dbl
@@ -1143,10 +1163,12 @@ export class PlateIQLogic {
         ctaFg: active ? 'accDeep' : 'mut4',
         cta: active ? 'Resting — tap to log next' : done ? '✓ logged' : 'Tap when done ›',
         // Names the action, and opens with the words on screen so Voice Control can match them.
-        ctaAria: done
-          ? 'Logged. ' + s.label + '. Double tap to edit what you actually did.'
-          : active
-            ? 'Tap to log next. Resting. Double tap to log ' + s.label + ' and move on.'
+        // Same order as `cta` above: a re-tapped set is both active and done, and the spoken
+        // label must agree with the visible one. Editing lives on the LOGGED row, not here.
+        ctaAria: active
+          ? 'Tap to log next. Resting. Double tap to log ' + s.label + ' and move on.'
+          : done
+            ? 'Logged. ' + s.label + '. Double tap to do this set again.'
             : 'Tap when done. Log ' + s.label + ' at ' + s.main + ' ' + st.units + ' and start the rest timer.',
         tap: () => this.tapSet(i),
         // logged actual vs planned — only surfaced once the set is behind you
@@ -1722,8 +1744,15 @@ export class PlateIQLogic {
       sessionsStat: String(hist.count),
       finishedAt: p.work.main + ' ' + st.units,
       saveSession: () => {
+        // Captured before the write: advanceSession snapshots state AFTER recordSession runs,
+        // so without this, undo restored the ladder but left the record in History — and
+        // pressing the button again wrote a second copy of the same workout.
+        const { records, sessionsLogged } = this.state;
         this.recordSession();
         this.advanceSession();
+        this.setState((s) => (s.undo
+          ? { undo: { ...s.undo, patch: { ...s.undo.patch, records, sessionsLogged } } }
+          : null));
       },
       // what the completion card summarises: every set you actually logged, in order
       doneSummary: Object.keys(st.log)

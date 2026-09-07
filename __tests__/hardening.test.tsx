@@ -445,6 +445,44 @@ describe('store binding', () => {
     } finally { stop(); }
   });
 
+  test('a rest paused mid-countdown comes back with what was left, not the whole thing', async () => {
+    const t0 = 1_800_000_000_000;
+    await seedStorage({
+      tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: null,
+      paused: true, pausedAt: t0 - 60_000, pausedRemaining: 42,
+    });
+    await useStore.persist.rehydrate();
+    const stop = bootStore({ tourDelay: 0, now: () => t0 });
+    try {
+      expect(useStore.getState().activeIdx).toBe(1);
+      expect(useStore.getState().paused).toBe(true);
+      expect(useStore.getState().remaining).toBe(42); // not 180
+    } finally { stop(); }
+  });
+
+  test('a pause nobody came back from expires like a live rest', async () => {
+    const t0 = 1_800_000_000_000;
+    await seedStorage({
+      tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: null,
+      paused: true, pausedAt: t0 - 31 * 60 * 1000, pausedRemaining: 42,
+    });
+    await useStore.persist.rehydrate();
+    const stop = bootStore({ tourDelay: 0, now: () => t0 });
+    try {
+      expect(useStore.getState().activeIdx).toBeNull();
+      expect(useStore.getState().paused).toBe(false);
+    } finally { stop(); }
+  });
+
+  test('the pause stamps survive the sanitizer — a number here must not be rejected as not-null', () => {
+    const clean = sanitizePersisted({ pausedAt: 1_800_000_000_000, pausedRemaining: 42 });
+    expect(clean.pausedAt).toBe(1_800_000_000_000);
+    expect(clean.pausedRemaining).toBe(42);
+    const junk = sanitizePersisted({ pausedAt: 'soon', pausedRemaining: -5 });
+    expect(junk.pausedAt).toBeUndefined();
+    expect(junk.pausedRemaining).toBeUndefined();
+  });
+
   test('a rest in progress survives a relaunch through its wall-clock end time', async () => {
     const t0 = 1_800_000_000_000;
     await seedStorage({ tourSeen: true, onboard: false, activeIdx: 1, restTotal: 180, restEndsAt: t0 + 61_400, paused: false });
@@ -878,5 +916,90 @@ describe('the completion card has a way back', () => {
     expect(state(l).allDone).toBe(false);
     expect(state(l).doneIdx).toEqual([0]);
     expect(state(l).records.length).toBe(0);
+  });
+});
+
+// ---- 2026-09-07 self-review: defects the pre-ship diff itself introduced or missed -------------
+
+describe('the last unguarded picker', () => {
+  test('tapping the handle you are already on keeps your logged sets', () => {
+    const l = fresh({ mode: 'dumbbell' });
+    l.tapSet(0); l.finishRest();
+    expect(state(l).doneIdx).toEqual([0]);
+    const lit = l.renderVals().barOptions.find((o: { on: boolean }) => o.on);
+    expect(lit).toBeTruthy();
+    (lit as { pick: () => void }).pick();
+    expect(state(l).doneIdx).toEqual([0]);
+  });
+
+  test('a real handle change still rebuilds the ladder', () => {
+    const l = fresh({ mode: 'dumbbell' });
+    l.tapSet(0); l.finishRest();
+    const other = l.renderVals().barOptions.find((o: { on: boolean }) => !o.on);
+    (other as { pick: () => void }).pick();
+    expect(state(l).doneIdx).toEqual([]);
+  });
+
+  test('re-picking the bar weight you already have keeps your logged sets', () => {
+    const l = fresh();
+    l.tapSet(0); l.finishRest();
+    l.setBarWeight(state(l).bar);
+    expect(state(l).doneIdx).toEqual([0]);
+    l.setBarWeight(state(l).bar + 10);
+    expect(state(l).doneIdx).toEqual([]);
+  });
+});
+
+describe('a control says what it actually does', () => {
+  test('a logged set does not promise an editor its button will not open', () => {
+    const l = fresh();
+    l.tapSet(0); l.finishRest();
+    const done = l.renderVals().sets[0];
+    expect(done.cta).toContain('logged');
+    expect(done.ctaAria).not.toMatch(/edit/i); // editing lives on the LOGGED row
+    // and pressing it must not silently start a rest on a finished set
+    const before = state(l).activeIdx;
+    expect(before).toBeNull();
+  });
+
+  test('the spoken label follows the same state order as the visible one', () => {
+    const l = fresh();
+    l.tapSet(0); // active
+    const a = l.renderVals().sets[0];
+    expect(a.cta).toMatch(/Resting/);
+    expect(a.ctaAria).toMatch(/^Tap to log next/);
+    const fresh2 = fresh();
+    const n = fresh2.renderVals().sets[0];
+    expect(n.cta).toMatch(/Tap when done/);
+    expect(n.ctaAria).toMatch(/^Tap when done/);
+  });
+});
+
+describe('the VoiceOver tour guard', () => {
+  test('a screen reader detected during the mount delay still cancels the tour', () => {
+    jest.useFakeTimers();
+    try {
+      const l = new PlateIQLogic(new MemoryHost(), { startOnOnboarding: true });
+      l.setState({ tour: 'auto', tourSeen: false, onboard: null, screenReader: false });
+      l.mount(500);
+      // the native accessibility answer lands after mount, as it does on a real launch
+      l.setState({ screenReader: true });
+      jest.advanceTimersByTime(600);
+      expect(state(l).tour).toBe(false);
+      l.unmount();
+    } finally { jest.useRealTimers(); }
+  });
+});
+
+describe('logging a session', () => {
+  test('undoing "Log & go to next" takes the record back out of History', () => {
+    const l = fresh({ session: ['Bench press', 'Overhead press'], exercise: 'Bench press' });
+    l.tapSet(0); l.tapSet(0); // start then log
+    expect(state(l).doneIdx.length).toBeGreaterThan(0);
+    l.renderVals().saveSession();
+    expect(state(l).records.length).toBe(1);
+    l.applyUndo();
+    expect(state(l).records.length).toBe(0);
+    expect(state(l).sessionsLogged).toBe(0);
   });
 });

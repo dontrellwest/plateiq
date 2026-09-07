@@ -24,7 +24,7 @@ export const PERSISTED_KEYS: Array<keyof AppState> = [
   'working', 'dbTotal', 'lmTarget', 'warmups', 'scheme', 'doneIdx', 'log', 'allDone', 'rmW', 'rmR', 'rmRpe',
   // the rest in progress: iOS may terminate a suspended app between sets; the wall-clock end time
   // lets the countdown pick up where it was (`remaining` is recomputed from it on relaunch)
-  'activeIdx', 'restTotal', 'restEndsAt', 'paused',
+  'activeIdx', 'restTotal', 'restEndsAt', 'paused', 'pausedAt', 'pausedRemaining',
   // session queue
   'session', 'sessionDone', 'exercise',
   // history
@@ -70,6 +70,8 @@ const nullableOk: Partial<Record<keyof AppState, (v: unknown) => boolean>> = {
   onboard: (v) => v === null || typeof v === 'boolean',
   tourSnap: (v) => v === null || isObj(v),
   restEndsAt: (v) => v === null || isNum(v),
+  pausedAt: (v) => v === null || isNum(v),
+  pausedRemaining: (v) => v === null || (isNum(v) && v >= 0),
   activeIdx: (v) => v === null || (isNum(v) && Number.isInteger(v) && v >= 0),
   undo: (v) => v === null,
 };
@@ -240,6 +242,23 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     else void restAlert.disarm();
   };
 
+  // Permission can be revoked in iOS Settings between launches. Without this the switch keeps
+  // reading ON, keeps scheduling an alert that will never appear, and says nothing.
+  const recheckNotify = () => {
+    const st = useStore.getState();
+    // (restNotify false, notifyBlocked true) is exactly the state that shows the "turn them on in
+    // iOS Settings" block — the one state that most needs re-checking, so it cannot be skipped.
+    if (!st.restNotify && !st.notifyBlocked) return;
+    void notify.currentPermission().then((r) => {
+      if (r === 'unavailable') return;
+      if (r === 'granted') {
+        if (useStore.getState().notifyBlocked) useStore.setState({ notifyBlocked: false });
+        return;
+      }
+      useStore.setState({ restNotify: false, notifyBlocked: r === 'blocked' });
+    });
+  };
+
   const finishHydration = () => {
     if (settled) return;
     const s = useStore.getState();
@@ -252,12 +271,17 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     const s1 = useStore.getState();
     if (s1.activeIdx !== null) {
       if (s1.restEndsAt !== null && now() - s1.restEndsAt > REST_RESUME_LIMIT_MS) {
-        useStore.setState({ activeIdx: null, remaining: 0, restEndsAt: null, paused: false });
+        useStore.setState({ activeIdx: null, remaining: 0, restEndsAt: null, paused: false, pausedAt: null, pausedRemaining: null });
       } else if (s1.restEndsAt !== null) {
         useStore.setState({ remaining: Math.max(0, Math.round((s1.restEndsAt - now()) / 1000)) });
+      } else if (s1.pausedAt !== null && now() - s1.pausedAt > REST_RESUME_LIMIT_MS) {
+        // a pause nobody came back from expires exactly like a live rest, or the set stays lit
+        // under a live-looking panel for as long as the app is installed
+        useStore.setState({ activeIdx: null, remaining: 0, paused: false, pausedAt: null, pausedRemaining: null });
       } else {
-        // paused before it started counting (auto-start off): the full rest is still ahead
-        useStore.setState({ remaining: s1.restTotal, paused: true });
+        // paused mid-countdown: come back with what was left. With no stamp the rest never started
+        // (auto-start off), so the whole of it is still ahead.
+        useStore.setState({ remaining: s1.pausedRemaining === null ? s1.restTotal : s1.pausedRemaining, paused: true });
       }
     }
     // the bar field's draft always mirrors the implement in hand after a relaunch
@@ -268,6 +292,8 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
     // iOS keeps scheduled notifications across a force-quit; clear them, then re-arm from the rest
     // that was just restored, if there was one.
     void restAlert.bootCleanup().then(syncRestAlert);
+    // only now do the saved settings exist — before this it read the default and returned
+    recheckNotify();
     logic.mount(opts.tourDelay ?? 500);
     settledListeners.splice(0).forEach((cb) => cb());
   };
@@ -275,7 +301,15 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
   if (useStore.persist.hasHydrated() || hydrationFailed) finishHydration();
   const offHydrate = useStore.persist.onFinishHydration(finishHydration);
   // hydration that neither completes nor reports an error (storage hangs) must not block the app
-  const fallback = setTimeout(() => { if (!settled) { console.warn('PlateIQ: storage did not answer — starting with defaults'); finishHydration(); } }, 4000);
+  const fallback = setTimeout(() => {
+    if (settled) return;
+    console.warn('PlateIQ: storage did not answer — starting with defaults');
+    // Never take the tour decision on this path. The tour would snapshot the defaults, and if the
+    // real saved state arrived underneath it, the tour's exit would write those defaults back over
+    // the user's workout.
+    useStore.setState({ tour: false });
+    finishHydration();
+  }, 4000);
 
   const interval = setInterval(() => logic.tick(now()), 1000);
 
@@ -308,17 +342,6 @@ export function bootStore(opts: { tourDelay?: number; now?: () => number } = {})
       || s.paused !== prev.paused || s.restNotify !== prev.restNotify || s.tour !== prev.tour;
     if (changed) syncRestAlert();
   });
-
-  // Permission can be revoked in iOS Settings between launches. Without this the switch keeps
-  // reading ON, keeps scheduling an alert that will never appear, and says nothing.
-  const recheckNotify = () => {
-    if (!useStore.getState().restNotify) return;
-    void notify.currentPermission().then((r) => {
-      if (r === 'granted' || r === 'unavailable') return;
-      useStore.setState({ restNotify: false, notifyBlocked: r === 'blocked' });
-    });
-  };
-  recheckNotify();
 
   const appSub = RNAppState.addEventListener('change', (st) => {
     if (st === 'active') { logic.tick(now()); recheckNotify(); }
