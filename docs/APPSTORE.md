@@ -98,6 +98,12 @@ The answer to "Do you or your third-party partners collect any data from this ap
 produces a **Data Not Collected** label. This is literally true: there is no networking code in the
 app at all.
 
+## Screenshots
+
+Four are captured and ready at `screenshots/`, all 1320 x 2868 with no alpha channel. See
+`screenshots/README.md` for what each shows, the capture command, and why they should be retaken
+from the TestFlight build if anything visual changes.
+
 ## Support and privacy URLs
 
 ```
